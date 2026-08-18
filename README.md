@@ -117,6 +117,17 @@ A vouch raises an unknown actor to `vouched`. A denouncement caps the tier no
 matter what else was supplied, and says so on stderr — a downgrade nobody
 notices would be a bug.
 
+## Verifying a release
+
+Release binaries carry a signed SLSA build provenance attestation:
+
+```bash
+gh attestation verify locus-x86_64-unknown-linux-gnu --repo hey-vera/gitlocus
+```
+
+That is the point of shipping them this way: a provenance tool distributing
+unattested binaries would refute itself.
+
 ## How this repository is built
 
 The CI is deliberately structured as the same three classes the spec defines.
