@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# cargo-deny configuration. Checked in CI on every pull request and daily, since
+# advisories land continuously and a clean run last week means very little.
+
+[graph]
+all-features = true
+
+[advisories]
+# Any known vulnerability fails the build. There is no severity threshold: a
+# project about trustworthy dependencies does not get to carry known-vulnerable
+# ones because they scored low.
+yanked = "deny"
+ignore = []
+
+[licenses]
+# Apache-2.0 throughout, and dependencies must be compatible with redistribution
+# under it. Strong copyleft is denied by omission rather than by a deny list, so
+# a new licence appearing in the tree fails loudly instead of slipping through.
+confidence-threshold = 0.93
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "MIT",
+    "MIT-0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+    "CC0-1.0",
+]
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+# A build script is arbitrary code executed at compile time on every machine
+# that builds this project, including contributors' laptops. Not banned — much
+# of the ecosystem needs them — but they are the highest-value place to look
+# when reviewing a dependency addition.
+deny = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

@@ -1,0 +1,50 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Specification change
+description: Propose a change to the model or the normative text.
+labels: ["spec", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The specification is a contract other implementations may code against,
+        so changes are deliberately slower than code changes. Open one of these
+        before writing an implementation, not after.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What the current specification cannot express
+      description: A concrete case that the model handles wrongly or cannot represent.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+    validations:
+      required: true
+
+  - type: textarea
+    id: invariants
+    attributes:
+      label: Effect on the invariants
+      description: |
+        Say explicitly how this interacts with each. A change that weakens one is
+        not necessarily wrong, but it needs to be argued for rather than slipped in.
+
+        1. Assessed evidence can never satisfy a requirement.
+        2. Evidence bound to another revision can never count.
+        3. Inconclusive is unmet.
+        4. Verdicts are pure functions.
+        5. No AI-authorship detection.
+    validations:
+      required: true
+
+  - type: textarea
+    id: cost
+    attributes:
+      label: What this costs
+      description: Every real proposal has a cost. A proposal with only benefits has not been thought through yet.
+    validations:
+      required: true

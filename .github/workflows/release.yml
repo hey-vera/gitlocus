@@ -1,0 +1,128 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Release. A project whose subject is verifiable provenance cannot ship
+# unattested binaries — it would refute itself in the most literal way.
+#
+# Every artifact gets a signed SLSA build provenance attestation via Sigstore,
+# and the release is immutable: once published, assets and tag cannot be
+# changed. Verify a download with:
+#
+#   gh attestation verify <file> --repo hey-vera/gitlocus
+
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to release
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build (${{ matrix.target }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-latest
+          - target: aarch64-apple-darwin
+            runner: macos-latest
+          - target: x86_64-pc-windows-msvc
+            runner: windows-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # v1
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+
+      - run: cargo build --release --locked -p locus-cli --target ${{ matrix.target }}
+
+      - name: Package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            cp "target/${{ matrix.target }}/release/locus.exe" "dist/locus-${{ matrix.target }}.exe"
+          else
+            cp "target/${{ matrix.target }}/release/locus" "dist/locus-${{ matrix.target }}"
+          fi
+          ls -l dist
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist-${{ matrix.target }}
+          path: dist/
+          retention-days: 7
+
+  publish:
+    name: publish
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # A protected environment puts a human between a tag push and a signed
+    # public artifact. Configure required reviewers on the `release`
+    # environment in repository settings.
+    environment: release
+    permissions:
+      contents: write
+      # Required for Sigstore keyless signing of the attestation.
+      id-token: write
+      attestations: write
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: staging
+          merge-multiple: true
+
+      - name: Collect
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          find staging -type f -exec cp {} dist/ \;
+          cd dist && sha256sum * > SHA256SUMS && cat SHA256SUMS
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/locus-*
+
+      - name: Publish immutable release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" dist/* \
+            --repo "${{ github.repository }}" \
+            --title "$TAG" \
+            --generate-notes \
+            --verify-tag
+          echo "Verify a download with:" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "gh attestation verify locus-<target> --repo ${{ github.repository }}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

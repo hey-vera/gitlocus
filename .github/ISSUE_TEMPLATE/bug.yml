@@ -1,0 +1,52 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Bug report
+description: Something behaves differently from what the specification says.
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A report that cannot be reproduced costs the same attention as one that
+        can. That asymmetry is the problem this project exists to address, so it
+        would be poor form for us to ignore it here.
+
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: v0.0.1, or a commit SHA
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should have happened
+      description: Where possible, cite the clause in spec/README.md.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead
+      description: Paste the actual output. Distinguish what you observed from what you inferred.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: Exact commands, or a failing test. Minimal is better than complete.
+      render: shell
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: verified
+    attributes:
+      label: Verification
+      options:
+        - label: I ran the reproduction steps above myself and saw this result.
+          required: true

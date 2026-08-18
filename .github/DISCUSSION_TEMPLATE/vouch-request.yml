@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0
+title: "Vouch request: "
+labels: ["vouch-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Standing is not required to contribute here - the baseline policy is open
+        to anyone, deliberately, because raising that bar is how a project stops
+        receiving good first contributions.
+
+        This is for the paths that do need standing: `spec/` requires contributor
+        tier, and `.github/` and `.gitlocus/` require maintainer tier.
+
+        Interoperates with [Vouch](https://github.com/mitchellh/vouch). If you are
+        already in a `VOUCHED.td` elsewhere, say where.
+
+  - type: textarea
+    id: intent
+    attributes:
+      label: What you want to work on
+      description: In your own words. Length is not the point; specificity is.
+    validations:
+      required: true
+
+  - type: input
+    id: existing
+    attributes:
+      label: Existing vouches, if any
+      placeholder: e.g. ghostty-org/ghostty VOUCHED.td
+    validations:
+      required: false

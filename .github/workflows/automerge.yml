@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Arms GitHub's auto-merge on every non-draft pull request. GitHub then merges
+# it only once the branch ruleset is satisfied — required checks green and the
+# approval present. Nothing here bypasses a check.
+#
+# That is only safe because the required checks are real. A required check that
+# always reports green is not a gate, and arming auto-merge on top of one
+# automates merging unverified code. If a check here is ever reduced to a
+# placeholder, delete this workflow first.
+
+name: Auto-merge
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  # pull_request events only fire for activity after this workflow existed, so
+  # anything opened earlier was never armed and would sit indefinitely. A daily
+  # sweep picks those up. It arms; the ruleset still decides.
+  schedule:
+    - cron: "31 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: automerge-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  arm:
+    name: arm
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Arm this pull request
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.draft == false
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+        run: gh pr merge "$PR" --squash --auto --repo "${{ github.repository }}" || true
+
+      - name: Sweep pull requests opened before this workflow existed
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh pr list --repo "${{ github.repository }}" \
+            --state open --draft=false --json number --jq '.[].number' \
+          | while read -r pr; do
+              [ -z "$pr" ] && continue
+              echo "arming #$pr"
+              gh pr merge "$pr" --squash --auto --repo "${{ github.repository }}" || true
+            done

@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gitlocus.dev/schemas/v0/verdict.schema.json",
+  "title": "Verdict",
+  "description": "The reproducible result of evaluating a contribution against a policy. A pure function of (policy, contribution, evidence).",
+  "type": "object",
+  "required": [
+    "contribution",
+    "subject_digest",
+    "decision",
+    "matched_rules",
+    "unmet",
+    "approvals_required",
+    "approvals_present",
+    "tier_required",
+    "tier_satisfied",
+    "advisory",
+    "rank"
+  ],
+  "properties": {
+    "contribution": {
+      "type": "string"
+    },
+    "subject_digest": {
+      "type": "string"
+    },
+    "decision": {
+      "enum": [
+        "satisfied",
+        "needs_human",
+        "blocked"
+      ]
+    },
+    "matched_rules": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "unmet": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "requirement",
+          "reason"
+        ],
+        "properties": {
+          "requirement": {
+            "type": "string"
+          },
+          "reason": {
+            "enum": [
+              "missing",
+              "failed",
+              "inconclusive",
+              "not_deterministic",
+              "stale_subject"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "approvals_required": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "approvals_present": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "tier_required": {
+      "enum": [
+        "unknown",
+        "vouched",
+        "contributor",
+        "maintainer"
+      ]
+    },
+    "tier_satisfied": {
+      "type": "boolean"
+    },
+    "advisory": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Assessed findings, surfaced for the reader and binding on nothing."
+    },
+    "rank": {
+      "type": "object",
+      "required": [
+        "confidence",
+        "human_cost"
+      ],
+      "properties": {
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "human_cost": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

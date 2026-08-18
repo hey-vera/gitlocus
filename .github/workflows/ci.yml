@@ -1,0 +1,277 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Deterministic checks. Everything here is reproducible by anyone with the same
+# inputs, which is what makes it eligible to block a merge under this project's
+# own model. Assessed checks (model review) do not live in this file and must
+# never be added to it — see docs/adr/0003-evidence-classes.md.
+#
+# Job names are load-bearing: they are the requirement names in
+# .gitlocus/policy.yml. Renaming a job here without renaming the requirement
+# there breaks the gate, and the gate job will say so.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Merges performed by auto-merge use GITHUB_TOKEN, and pushes made with that
+  # token do not trigger workflows. main therefore gets no run of its own on
+  # merge; a daily run keeps its health from being purely inferred.
+  schedule:
+    - cron: "23 5 * * *"
+  workflow_dispatch:
+
+# Read-only by default. Any job needing more asks for it explicitly.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # v1
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - run: cargo build --all-targets --locked
+
+  tests:
+    name: tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # v1
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      # Includes the conformance suite, which validates this crate's own
+      # serialisation against the published schemas in spec/schemas.
+      - run: cargo test --all-targets --locked
+      # --all-targets skips doctests; the model's documentation carries examples
+      # worth keeping honest.
+      - run: cargo test --doc --locked
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # v1
+        with:
+          toolchain: stable
+          components: clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - run: cargo clippy --all-targets --locked -- -D warnings
+
+  fmt:
+    name: fmt
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # v1
+        with:
+          toolchain: stable
+          components: rustfmt
+      - run: cargo fmt --all --check
+
+  schema-validation:
+    name: schema-validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # v1
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      # Every schema must itself be a valid JSON Schema, and must be
+      # self-contained: a remote $ref would make every consumer's validation
+      # depend on a live domain.
+      - name: Schemas are valid and self-contained
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, sys
+          failed = False
+          for path in sorted(pathlib.Path("spec/schemas").glob("*.json")):
+              doc = json.loads(path.read_text())
+              refs = []
+              def walk(node):
+                  if isinstance(node, dict):
+                      if "$ref" in node and isinstance(node["$ref"], str):
+                          refs.append(node["$ref"])
+                      for v in node.values():
+                          walk(v)
+                  elif isinstance(node, list):
+                      for v in node:
+                          walk(v)
+              walk(doc)
+              remote = [r for r in refs if not r.startswith("#")]
+              if remote:
+                  print(f"{path}: remote $ref not allowed: {remote}")
+                  failed = True
+              else:
+                  print(f"{path}: ok ({len(refs)} local refs)")
+          sys.exit(1 if failed else 0)
+          PY
+
+      - name: This repository's own policy compiles
+        run: cargo run --locked -p locus-cli -- policy check --policy .gitlocus/policy.yml
+
+  # The gate: this project evaluated by this project. A policy engine whose
+  # authors exempt themselves demonstrates nothing.
+  #
+  # CI gates the machine-checkable half only. A verdict of needs_human is a
+  # success here — the outstanding approval is enforced by the branch ruleset,
+  # not by a workflow that could be edited in the same pull request it governs.
+  gate:
+    name: gate
+    if: github.event_name == 'pull_request'
+    needs: [build, tests, lint, fmt, schema-validation]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # v1
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      - name: Build the gate
+        run: cargo build --release --locked -p locus-cli
+
+      - name: Describe the contribution
+        env:
+          # Via env rather than inline expansion: a branch or login is
+          # attacker-controlled text and must never be interpolated into a shell
+          # script body.
+          REPO: ${{ github.repository }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          ASSOCIATION: ${{ github.event.pull_request.author_association }}
+        run: |
+          set -euo pipefail
+          # Trust tier is derived from the forge's own view of the author, which
+          # is the only tier signal available before the trust graph exists.
+          case "$ASSOCIATION" in
+            OWNER|MEMBER)  TIER=maintainer ;;
+            COLLABORATOR)  TIER=maintainer ;;
+            CONTRIBUTOR)   TIER=contributor ;;
+            *)             TIER=unknown ;;
+          esac
+          export TIER
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" > changed.txt
+          python3 - <<'PY'
+          import json, os
+          paths = [l.strip() for l in open("changed.txt") if l.strip()]
+          json.dump({
+              "repository": "github.com/" + os.environ["REPO"],
+              "base_digest": os.environ["BASE_SHA"],
+              "head_digest": os.environ["HEAD_SHA"],
+              "actor": {
+                  "id": os.environ["AUTHOR"],
+                  "kind": "human",
+                  "tier": os.environ["TIER"],
+                  "key_binding": "https://token.actions.githubusercontent.com",
+              },
+              "changed_paths": paths,
+          }, open("contribution.json", "w"), indent=2)
+          print(f"{len(paths)} changed path(s)")
+          PY
+
+      - name: Collect deterministic evidence
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          LOCUS=./target/release/locus
+          # These five jobs are `needs:` dependencies, so reaching this step means
+          # every one of them succeeded. The evidence records that fact in the
+          # model's own vocabulary rather than asserting it independently.
+          : > evidence.ndjson
+          for KIND in build tests lint fmt schema-validation; do
+            "$LOCUS" evidence emit \
+              --kind "$KIND" \
+              --class deterministic \
+              --outcome pass \
+              --subject "$HEAD_SHA" \
+              --produced-by "github-actions" \
+              --produced-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+              --source-uri "$RUN_URL" >> evidence.ndjson
+          done
+          python3 -c "import json,sys; json.dump([json.loads(l) for l in open('evidence.ndjson') if l.strip()], open('evidence.json','w'), indent=2)"
+
+      - name: Evaluate
+        run: |
+          set -uo pipefail
+          LOCUS=./target/release/locus
+          "$LOCUS" verify \
+            --policy .gitlocus/policy.yml \
+            --contribution contribution.json \
+            --evidence evidence.json | tee verdict.txt
+          "$LOCUS" verify \
+            --policy .gitlocus/policy.yml \
+            --contribution contribution.json \
+            --evidence evidence.json --format json > verdict.json || true
+
+          DECISION=$(python3 -c "import json;print(json.load(open('verdict.json'))['decision'])")
+
+          {
+            echo "## GitLocus gate"
+            echo
+            echo '```'
+            cat verdict.txt
+            echo '```'
+            echo
+            case "$DECISION" in
+              satisfied)   echo "Every requirement met." ;;
+              needs_human) echo "Machine checks complete. The outstanding approval is enforced by the branch ruleset." ;;
+              blocked)     echo "**Blocked.** See the unmet requirements above." ;;
+            esac
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # needs_human is a pass here: the human half is the ruleset's job.
+          if [ "$DECISION" = "blocked" ]; then
+            echo "::error::gate blocked this contribution"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: gitlocus-verdict
+          path: |
+            contribution.json
+            evidence.json
+            verdict.json
+          retention-days: 14

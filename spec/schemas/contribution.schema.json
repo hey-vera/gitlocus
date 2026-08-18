@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gitlocus.dev/schemas/v0/contribution.schema.json",
+  "title": "Contribution",
+  "description": "A proposed change, identified by content digests rather than by any forge's number.",
+  "type": "object",
+  "required": [
+    "repository",
+    "base_digest",
+    "head_digest",
+    "actor"
+  ],
+  "properties": {
+    "repository": {
+      "type": "string",
+      "minLength": 1,
+      "examples": [
+        "github.com/hey-vera/gitlocus"
+      ]
+    },
+    "base_digest": {
+      "type": "string",
+      "minLength": 1
+    },
+    "head_digest": {
+      "type": "string",
+      "minLength": 1
+    },
+    "actor": {
+      "$ref": "#/$defs/actor"
+    },
+    "changed_paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "forge_ref": {
+      "type": "string",
+      "description": "Where the contribution was observed. Informational only; verifiers must not decide from it."
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "actor": {
+      "title": "Actor",
+      "description": "Who produced a contribution. An agent with no identified operator has no responsible party and must not clear a meaningful trust tier.",
+      "type": "object",
+      "required": [
+        "id",
+        "kind"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable identifier, unique within the issuing identity provider."
+        },
+        "kind": {
+          "enum": [
+            "human",
+            "agent",
+            "pair"
+          ]
+        },
+        "implementation": {
+          "type": "string",
+          "description": "Agent implementation identifier. Required when kind is agent or pair."
+        },
+        "operator": {
+          "type": "string",
+          "description": "Human answerable for the agent's work. Required when kind is pair."
+        },
+        "tier": {
+          "enum": [
+            "unknown",
+            "vouched",
+            "contributor",
+            "maintainer"
+          ],
+          "default": "unknown"
+        },
+        "key_binding": {
+          "type": "string",
+          "description": "OIDC subject or public key the actor's signatures verify against. Absent means unauthenticated."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "agent"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "implementation"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "pair"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "implementation",
+              "operator"
+            ]
+          }
+        }
+      ],
+      "additionalProperties": false
+    }
+  }
+}

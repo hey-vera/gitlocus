@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/hey-vera/gitlocus/security/advisories/new
+    about: Report privately. Never in a public issue. There is no bug bounty - see SECURITY.md.
+  - name: Question or idea
+    url: https://github.com/hey-vera/gitlocus/discussions
+    about: Discussions are free and always faster than a rejected pull request.

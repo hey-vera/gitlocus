@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gitlocus.dev/schemas/v0/policy.schema.json",
+  "title": "Policy",
+  "description": "A repository's own contribution rules, versioned in the repository it governs.",
+  "type": "object",
+  "required": [
+    "version",
+    "rules"
+  ],
+  "properties": {
+    "version": {
+      "const": 0
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "when",
+          "require"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "when": {
+            "type": "object",
+            "required": [
+              "paths"
+            ],
+            "properties": {
+              "paths": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "require": {
+            "type": "object",
+            "properties": {
+              "deterministic": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "default": [],
+                "description": "Named checks that must be present, deterministic and passing."
+              },
+              "approvals": {
+                "type": "integer",
+                "minimum": 0,
+                "default": 0
+              },
+              "min_tier": {
+                "enum": [
+                  "unknown",
+                  "vouched",
+                  "contributor",
+                  "maintainer"
+                ],
+                "default": "unknown"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

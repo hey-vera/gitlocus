@@ -1,0 +1,21 @@
+[package]
+name = "locus-core"
+description = "Core model for GitLocus: actors, contributions, evidence, policy and verdicts."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+globset.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_norway.workspace = true
+
+[dev-dependencies]
+jsonschema.workspace = true
+
+[lints]
+workspace = true

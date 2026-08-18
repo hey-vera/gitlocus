@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Pinning actions to commit SHAs stops a mutable tag being swapped under us, but
+# it does nothing about the window between a maintainer's account being
+# compromised and the malicious release being noticed — pinning just means we
+# adopt it deliberately instead of silently.
+#
+# `cooldown` closes that window. A new version has to survive in public for a
+# week before Dependabot will propose it, which is longer than most supply-chain
+# compromises stay undetected.
+
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]
+    labels: ["dependencies", "github-actions"]
+    commit-message:
+      prefix: "build(actions)"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: cargo
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+      # Majors get longer: they need a real read regardless, so there is no cost
+      # to letting them settle first.
+      semver-major-days: 14
+    groups:
+      cargo-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    labels: ["dependencies", "rust"]
+    commit-message:
+      prefix: "build(cargo)"
+    open-pull-requests-limit: 5

@@ -1,0 +1,64 @@
+# GitLocus's own contribution policy.
+#
+# This is not a template and not a recommendation. It is the policy this
+# repository actually runs against its own pull requests, which is the only
+# honest way to ship a policy engine.
+#
+# Every rule whose paths match a change contributes. Required checks are
+# unioned; approvals and minimum tier take the strictest value demanded. A
+# change touching both src and CI config is held to the CI rule.
+#
+# Only deterministic evidence can satisfy `deterministic:`. A model's opinion
+# is surfaced next to the verdict and binds nothing.
+
+version: 0
+
+rules:
+  - name: baseline
+    when:
+      paths: ["**"]
+    require:
+      deterministic:
+        - build
+        - tests
+        - lint
+        - fmt
+      approvals: 1
+      # Deliberately open. Anyone may propose; the checks decide whether the
+      # proposal is worth a maintainer's time. Raising this bar is how a project
+      # stops receiving good first contributions.
+      min_tier: unknown
+
+  # CI configuration is the highest-leverage path in any repository: it decides
+  # what every other rule is worth. A change here that weakens a check would
+  # otherwise be gated only by the checks it is weakening.
+  - name: ci-and-policy
+    when:
+      paths:
+        - ".github/workflows/**"
+        - ".gitlocus/**"
+    require:
+      deterministic:
+        - build
+        - tests
+        - lint
+        - fmt
+        - workflow-audit
+      approvals: 1
+      min_tier: maintainer
+
+  # The spec is the contract other implementations code against. Changing it
+  # without changing the conformance fixtures is how a standard quietly forks.
+  - name: spec
+    when:
+      paths:
+        - "spec/**"
+    require:
+      deterministic:
+        - build
+        - tests
+        - lint
+        - fmt
+        - schema-validation
+      approvals: 1
+      min_tier: contributor

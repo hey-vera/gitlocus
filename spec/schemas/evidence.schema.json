@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gitlocus.dev/schemas/v0/evidence.schema.json",
+  "title": "Evidence",
+  "description": "A claim about one revision of one contribution. The class determines what the claim is worth: only deterministic evidence may satisfy a requirement.",
+  "type": "object",
+  "required": [
+    "kind",
+    "class",
+    "outcome",
+    "subject_digest",
+    "produced_by",
+    "produced_at"
+  ],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Requirement name this evidence answers to."
+    },
+    "class": {
+      "enum": [
+        "deterministic",
+        "assessed",
+        "attested"
+      ],
+      "description": "deterministic: reproducible by a third party, may bind. assessed: heuristic or model judgement, never binds. attested: a human took responsibility."
+    },
+    "outcome": {
+      "enum": [
+        "pass",
+        "fail",
+        "inconclusive"
+      ],
+      "description": "inconclusive is treated as unmet, never as a pass."
+    },
+    "subject_digest": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Revision the claim is about. Must equal the contribution head_digest to bind."
+    },
+    "produced_by": {
+      "type": "string",
+      "minLength": 1
+    },
+    "produced_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_uri": {
+      "type": "string",
+      "format": "uri"
+    },
+    "summary": {
+      "type": "string",
+      "description": "Free-form detail. Never parsed for control flow."
+    }
+  },
+  "additionalProperties": false
+}
