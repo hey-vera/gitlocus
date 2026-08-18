@@ -10,9 +10,9 @@ use crate::actor::TrustTier;
 use crate::contribution::Contribution;
 use crate::evidence::{Evidence, EvidenceClass, Outcome};
 use crate::verdict::{Decision, Rank, Unmet, UnmetReason, Verdict};
-use globset::{Glob, GlobSet, GlobSetBuilder};
+use globset::{Glob, GlobMatcher, GlobSet, GlobSetBuilder};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 /// Schema version of the policy document.
@@ -75,6 +75,24 @@ pub struct Require {
     /// Minimum standing the contributor must hold.
     #[serde(default = "min_tier_default")]
     pub min_tier: TrustTier,
+    /// Checks that must additionally carry a verified signature, and from whom.
+    ///
+    /// The key is a requirement name; the value is a glob matched against the
+    /// verified signer identity. `*` accepts any verified signer, which still
+    /// means something — it demands that *somebody* is cryptographically on the
+    /// hook for the claim.
+    ///
+    /// ```yaml
+    /// signed_by:
+    ///   tests: "https://github.com/acme/repo/.github/workflows/ci.yml@refs/heads/main"
+    ///   lint: "*"
+    /// ```
+    ///
+    /// This is what stops a passing result produced on a laptop from standing in
+    /// for one produced by the repository's own CI. Without it, evidence is only
+    /// as trustworthy as the least careful party who can write the file.
+    #[serde(default)]
+    pub signed_by: BTreeMap<String, String>,
 }
 
 fn min_tier_default() -> TrustTier {
@@ -134,7 +152,24 @@ impl Policy {
             let set = builder
                 .build()
                 .map_err(|e| PolicyError::Malformed(e.to_string()))?;
-            compiled.push((rule, set));
+
+            // Signer constraints are globs over an identity URI, compiled here
+            // for the same reason path globs are: evaluation must not be able
+            // to fail partway through and leave a half-formed verdict.
+            let mut signers = BTreeMap::new();
+            for (kind, pattern) in &rule.require.signed_by {
+                let glob = Glob::new(pattern).map_err(|_| PolicyError::BadGlob {
+                    rule: rule.name.clone(),
+                    pattern: pattern.clone(),
+                })?;
+                signers.insert(kind.clone(), glob.compile_matcher());
+            }
+
+            compiled.push(CompiledRule {
+                rule,
+                paths: set,
+                signers,
+            });
         }
         Ok(CompiledPolicy { rules: compiled })
     }
@@ -143,7 +178,15 @@ impl Policy {
 /// A policy with its path patterns compiled. Evaluation is infallible.
 #[derive(Debug)]
 pub struct CompiledPolicy {
-    rules: Vec<(Rule, GlobSet)>,
+    rules: Vec<CompiledRule>,
+}
+
+/// A rule with its path and signer globs compiled.
+#[derive(Debug)]
+struct CompiledRule {
+    rule: Rule,
+    paths: GlobSet,
+    signers: BTreeMap<String, GlobMatcher>,
 }
 
 impl CompiledPolicy {
@@ -162,20 +205,43 @@ impl CompiledPolicy {
         let mut approvals_required = 0;
         let mut tier_required = TrustTier::Unknown;
 
-        for (rule, globs) in &self.rules {
-            if !contribution.changed_paths.iter().any(|p| globs.is_match(p)) {
+        // Every constraint from every matching rule applies. Where two rules
+        // constrain the same check, both signer globs must match: a document
+        // that says two things about one requirement is stricter, not ambiguous.
+        let mut signer_constraints: Vec<(&str, &GlobMatcher)> = Vec::new();
+
+        for compiled in &self.rules {
+            if !contribution
+                .changed_paths
+                .iter()
+                .any(|p| compiled.paths.is_match(p))
+            {
                 continue;
             }
+            let rule = &compiled.rule;
             matched.push(rule.name.clone());
             required.extend(rule.require.deterministic.iter().map(String::as_str));
             approvals_required = approvals_required.max(rule.require.approvals);
             tier_required = tier_required.max(rule.require.min_tier);
+
+            for (kind, matcher) in &compiled.signers {
+                // A signature requirement implies the check is required at all.
+                // Demanding a signature on something optional would silently do
+                // nothing, which is worse than either alternative.
+                required.insert(kind.as_str());
+                signer_constraints.push((kind.as_str(), matcher));
+            }
         }
 
         let mut unmet = Vec::new();
         let mut satisfied = 0_u32;
         for kind in &required {
-            match classify(kind, digest, evidence) {
+            let signers: Vec<&GlobMatcher> = signer_constraints
+                .iter()
+                .filter(|(k, _)| k == kind)
+                .map(|(_, m)| *m)
+                .collect();
+            match classify(kind, digest, evidence, &signers) {
                 None => satisfied += 1,
                 Some(reason) => unmet.push(Unmet {
                     requirement: (*kind).to_string(),
@@ -241,13 +307,44 @@ impl CompiledPolicy {
 }
 
 /// Why a requirement is unmet, or `None` if it is met.
-fn classify(kind: &str, digest: &str, evidence: &[Evidence]) -> Option<UnmetReason> {
+///
+/// `signers` carries every signer constraint the matching rules placed on this
+/// requirement. All of them must match the same piece of evidence.
+fn classify(
+    kind: &str,
+    digest: &str,
+    evidence: &[Evidence],
+    signers: &[&GlobMatcher],
+) -> Option<UnmetReason> {
     let candidates: Vec<&Evidence> = evidence.iter().filter(|e| e.kind == kind).collect();
     if candidates.is_empty() {
         return Some(UnmetReason::Missing);
     }
-    if candidates.iter().any(|e| e.is_binding_for(digest)) {
-        return None;
+
+    let binding: Vec<&&Evidence> = candidates
+        .iter()
+        .filter(|e| e.is_binding_for(digest))
+        .collect();
+
+    if !binding.is_empty() {
+        if signers.is_empty() {
+            return None;
+        }
+        // Signature is checked only against evidence that would otherwise bind,
+        // so a failing signed record cannot mask a passing unsigned one or the
+        // other way round.
+        if binding.iter().any(|e| {
+            e.signer
+                .as_deref()
+                .is_some_and(|s| signers.iter().all(|m| m.is_match(s)))
+        }) {
+            return None;
+        }
+        return Some(if binding.iter().any(|e| e.signer.is_some()) {
+            UnmetReason::WrongSigner
+        } else {
+            UnmetReason::Unsigned
+        });
     }
     // Report the most actionable reason rather than whichever was seen first.
     if candidates
@@ -322,6 +419,7 @@ rules:
             produced_at: "2026-08-18T00:00:00Z".into(),
             source_uri: None,
             summary: None,
+            signer: None,
         }
     }
 
@@ -335,6 +433,7 @@ rules:
             produced_at: "2026-08-18T00:00:00Z".into(),
             source_uri: None,
             summary: None,
+            signer: None,
         }
     }
 
@@ -436,5 +535,160 @@ rules:
         let src = "version: 99\nrules: []\n";
         let err = Policy::from_yaml(src).unwrap().compile().unwrap_err();
         assert!(matches!(err, PolicyError::UnsupportedVersion { found: 99 }));
+    }
+
+    // --- signature constraints -------------------------------------------
+
+    const SIGNED_POLICY: &str = r#"
+version: 0
+rules:
+  - name: signed-ci
+    when:
+      paths: ["**"]
+    require:
+      deterministic: [tests]
+      approvals: 0
+      signed_by:
+        tests: "https://github.com/acme/repo/.github/workflows/ci.yml@*"
+"#;
+
+    fn signed_policy() -> CompiledPolicy {
+        Policy::from_yaml(SIGNED_POLICY).unwrap().compile().unwrap()
+    }
+
+    fn signed(kind: &str, by: Option<&str>) -> Evidence {
+        let mut e = pass(kind);
+        e.signer = by.map(ToOwned::to_owned);
+        e
+    }
+
+    #[test]
+    fn unsigned_evidence_does_not_satisfy_a_signed_requirement() {
+        let v = signed_policy().evaluate(
+            &contribution(&["src/main.rs"], TrustTier::Contributor),
+            &[signed("tests", None)],
+        );
+        assert_eq!(v.decision, Decision::Blocked);
+        assert_eq!(v.unmet[0].reason, UnmetReason::Unsigned);
+    }
+
+    #[test]
+    fn evidence_signed_by_the_wrong_identity_does_not_satisfy_it() {
+        // The laptop case: a real passing run, really signed, by someone who is
+        // not the repository's CI.
+        let v = signed_policy().evaluate(
+            &contribution(&["src/main.rs"], TrustTier::Contributor),
+            &[signed(
+                "tests",
+                Some(
+                    "https://github.com/someone-else/repo/.github/workflows/ci.yml@refs/heads/main",
+                ),
+            )],
+        );
+        assert_eq!(v.decision, Decision::Blocked);
+        assert_eq!(v.unmet[0].reason, UnmetReason::WrongSigner);
+    }
+
+    #[test]
+    fn evidence_signed_by_the_expected_identity_satisfies_it() {
+        let v = signed_policy().evaluate(
+            &contribution(&["src/main.rs"], TrustTier::Contributor),
+            &[signed(
+                "tests",
+                Some("https://github.com/acme/repo/.github/workflows/ci.yml@refs/heads/main"),
+            )],
+        );
+        assert_eq!(v.decision, Decision::Satisfied, "unmet: {:?}", v.unmet);
+    }
+
+    #[test]
+    fn a_signature_requirement_makes_the_check_required() {
+        // Demanding a signature on a check nobody required would silently do
+        // nothing, which is a worse outcome than either alternative.
+        let v =
+            signed_policy().evaluate(&contribution(&["src/main.rs"], TrustTier::Contributor), &[]);
+        assert_eq!(v.unmet[0].requirement, "tests");
+        assert_eq!(v.unmet[0].reason, UnmetReason::Missing);
+    }
+
+    #[test]
+    fn a_wildcard_still_demands_that_somebody_signed() {
+        let src = r#"
+version: 0
+rules:
+  - name: any-signer
+    when:
+      paths: ["**"]
+    require:
+      deterministic: [tests]
+      approvals: 0
+      signed_by:
+        tests: "*"
+"#;
+        let policy = || Policy::from_yaml(src).unwrap().compile().unwrap();
+        let c = contribution(&["src/main.rs"], TrustTier::Contributor);
+
+        let unsigned = policy().evaluate(&c, &[signed("tests", None)]);
+        assert_eq!(unsigned.unmet[0].reason, UnmetReason::Unsigned);
+
+        let anyone = policy().evaluate(&c, &[signed("tests", Some("https://example.com/whoever"))]);
+        assert_eq!(anyone.decision, Decision::Satisfied);
+    }
+
+    #[test]
+    fn a_signed_failure_cannot_be_masked_by_an_unsigned_pass() {
+        // Two records for one check: one correctly signed but failing, one
+        // passing with no signature. Neither should satisfy the requirement.
+        let mut failing = signed(
+            "tests",
+            Some("https://github.com/acme/repo/.github/workflows/ci.yml@refs/heads/main"),
+        );
+        failing.outcome = Outcome::Fail;
+
+        let v = signed_policy().evaluate(
+            &contribution(&["src/main.rs"], TrustTier::Contributor),
+            &[failing, signed("tests", None)],
+        );
+        assert_eq!(v.decision, Decision::Blocked);
+        assert_eq!(v.unmet[0].reason, UnmetReason::Unsigned);
+    }
+
+    #[test]
+    fn a_forged_signer_in_input_json_cannot_satisfy_a_signed_requirement() {
+        // The end-to-end version of the guarantee in evidence.rs: write the
+        // trusted CI identity into an evidence file by hand and it still fails.
+        let forged = format!(
+            r#"[{{"kind":"tests","class":"deterministic","outcome":"pass",
+                 "subject_digest":"head","produced_by":"me",
+                 "produced_at":"2026-08-18T00:00:00Z",
+                 "signer":"{}"}}]"#,
+            "https://github.com/acme/repo/.github/workflows/ci.yml@refs/heads/main"
+        );
+        let evidence: Vec<Evidence> = serde_json::from_str(&forged).unwrap();
+
+        let v = signed_policy().evaluate(
+            &contribution(&["src/main.rs"], TrustTier::Contributor),
+            &evidence,
+        );
+        assert_eq!(v.decision, Decision::Blocked);
+        assert_eq!(v.unmet[0].reason, UnmetReason::Unsigned);
+    }
+
+    #[test]
+    fn signature_constraints_do_not_disturb_determinism() {
+        let c = contribution(&["src/main.rs"], TrustTier::Contributor);
+        let ev = [
+            signed(
+                "tests",
+                Some("https://github.com/acme/repo/.github/workflows/ci.yml@refs/heads/main"),
+            ),
+            signed("tests", None),
+        ];
+        let mut reversed = ev.clone();
+        reversed.reverse();
+        assert_eq!(
+            serde_json::to_string(&signed_policy().evaluate(&c, &ev)).unwrap(),
+            serde_json::to_string(&signed_policy().evaluate(&c, &reversed)).unwrap()
+        );
     }
 }

@@ -54,6 +54,10 @@
     "summary": {
       "type": "string",
       "description": "Free-form detail. Never parsed for control flow."
+    },
+    "signer": {
+      "type": "string",
+      "description": "Cryptographically verified identity of the signer. OUTPUT ONLY: a conformant implementation MUST ignore this field on input. A signer is a conclusion a verifier reaches, never a claim a document makes."
     }
   },
   "additionalProperties": false

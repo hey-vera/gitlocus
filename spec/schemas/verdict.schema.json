@@ -55,7 +55,9 @@
               "failed",
               "inconclusive",
               "not_deterministic",
-              "stale_subject"
+              "stale_subject",
+              "unsigned",
+              "wrong_signer"
             ]
           }
         },
