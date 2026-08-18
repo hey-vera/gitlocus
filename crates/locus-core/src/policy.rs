@@ -78,9 +78,13 @@ pub struct Require {
     /// Checks that must additionally carry a verified signature, and from whom.
     ///
     /// The key is a requirement name; the value is a glob matched against the
-    /// verified signer identity. `*` accepts any verified signer, which still
-    /// means something — it demands that *somebody* is cryptographically on the
-    /// hook for the claim.
+    /// verified signer identity.
+    ///
+    /// **Pin the workflow path, not the issuer.** Anyone can run a workflow in
+    /// their own fork and get a valid signing identity from the same issuer, so
+    /// a glob of `*` — or one matching only `token.actions.githubusercontent.com`
+    /// — accepts a result produced by an arbitrary party running arbitrary code.
+    /// That is the exact situation this field exists to prevent.
     ///
     /// ```yaml
     /// signed_by:
@@ -93,6 +97,25 @@ pub struct Require {
     /// as trustworthy as the least careful party who can write the file.
     #[serde(default)]
     pub signed_by: BTreeMap<String, String>,
+
+    /// Identity an attestation must be signed by in order to count as an approval.
+    ///
+    /// Without this, an approval is a record whose `produced_by` is a string the
+    /// producer chose. An agent that has been talked into doing an attacker's
+    /// bidding — by an issue body, a README, a dependency's documentation — can
+    /// emit one and approve its own work. Class separation does not help here:
+    /// the record really is `attested`, it is simply nobody's attestation.
+    ///
+    /// Pointing this at a human identity provider is what makes the blast radius
+    /// of a hijacked agent "an unwanted contribution was opened" rather than
+    /// "an unwanted contribution was merged".
+    ///
+    /// ```yaml
+    /// approvals: 1
+    /// approvals_signed_by: "https://github.com/login/oauth/*"
+    /// ```
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub approvals_signed_by: Option<String>,
 }
 
 fn min_tier_default() -> TrustTier {
@@ -165,10 +188,23 @@ impl Policy {
                 signers.insert(kind.clone(), glob.compile_matcher());
             }
 
+            let approvals_signer = match &rule.require.approvals_signed_by {
+                Some(pattern) => Some(
+                    Glob::new(pattern)
+                        .map_err(|_| PolicyError::BadGlob {
+                            rule: rule.name.clone(),
+                            pattern: pattern.clone(),
+                        })?
+                        .compile_matcher(),
+                ),
+                None => None,
+            };
+
             compiled.push(CompiledRule {
                 rule,
                 paths: set,
                 signers,
+                approvals_signer,
             });
         }
         Ok(CompiledPolicy { rules: compiled })
@@ -187,6 +223,7 @@ struct CompiledRule {
     rule: Rule,
     paths: GlobSet,
     signers: BTreeMap<String, GlobMatcher>,
+    approvals_signer: Option<GlobMatcher>,
 }
 
 impl CompiledPolicy {
@@ -209,6 +246,7 @@ impl CompiledPolicy {
         // constrain the same check, both signer globs must match: a document
         // that says two things about one requirement is stricter, not ambiguous.
         let mut signer_constraints: Vec<(&str, &GlobMatcher)> = Vec::new();
+        let mut approval_signers: Vec<&GlobMatcher> = Vec::new();
 
         for compiled in &self.rules {
             if !contribution
@@ -223,6 +261,10 @@ impl CompiledPolicy {
             required.extend(rule.require.deterministic.iter().map(String::as_str));
             approvals_required = approvals_required.max(rule.require.approvals);
             tier_required = tier_required.max(rule.require.min_tier);
+
+            if let Some(matcher) = &compiled.approvals_signer {
+                approval_signers.push(matcher);
+            }
 
             for (kind, matcher) in &compiled.signers {
                 // A signature requirement implies the check is required at all.
@@ -250,6 +292,9 @@ impl CompiledPolicy {
             }
         }
 
+        // An approval is counted by verified signer where the policy demands
+        // one, and by the self-asserted producer otherwise. Distinct approvals
+        // are counted, so one party attesting twice is still one approval.
         let approvals_present = u32::try_from(
             evidence
                 .iter()
@@ -258,7 +303,14 @@ impl CompiledPolicy {
                         && e.outcome == Outcome::Pass
                         && e.subject_digest == digest
                 })
-                .map(|e| e.produced_by.as_str())
+                .filter_map(|e| {
+                    if approval_signers.is_empty() {
+                        return Some(e.produced_by.as_str());
+                    }
+                    e.signer
+                        .as_deref()
+                        .filter(|s| approval_signers.iter().all(|m| m.is_match(s)))
+                })
                 .collect::<BTreeSet<_>>()
                 .len(),
         )
@@ -690,5 +742,98 @@ rules:
             serde_json::to_string(&signed_policy().evaluate(&c, &ev)).unwrap(),
             serde_json::to_string(&signed_policy().evaluate(&c, &reversed)).unwrap()
         );
+    }
+
+    // --- approvals must come from someone ---------------------------------
+
+    const HUMAN_APPROVAL: &str = r#"
+version: 0
+rules:
+  - name: human-approval
+    when:
+      paths: ["**"]
+    require:
+      approvals: 1
+      approvals_signed_by: "https://github.com/login/oauth/*"
+"#;
+
+    fn human_policy() -> CompiledPolicy {
+        Policy::from_yaml(HUMAN_APPROVAL)
+            .unwrap()
+            .compile()
+            .unwrap()
+    }
+
+    fn attested(by: &str, signer: Option<&str>) -> Evidence {
+        let mut e = approval(by);
+        e.signer = signer.map(ToOwned::to_owned);
+        e
+    }
+
+    #[test]
+    fn an_agent_cannot_manufacture_its_own_approval() {
+        // The hijacked-agent case. The record really is attested; it is simply
+        // nobody's attestation, because produced_by is a string the producer
+        // chose. Class separation does not help here — this does.
+        let v = human_policy().evaluate(
+            &contribution(&["src/main.rs"], TrustTier::Contributor),
+            &[attested("definitely-a-human", None)],
+        );
+        assert_eq!(v.decision, Decision::NeedsHuman);
+        assert_eq!(v.approvals_present, 0);
+    }
+
+    #[test]
+    fn an_approval_signed_by_a_workflow_does_not_count_as_human() {
+        // A CI identity is not a person, and a policy asking for human sign-off
+        // should not accept one however genuine the signature.
+        let v = human_policy().evaluate(
+            &contribution(&["src/main.rs"], TrustTier::Contributor),
+            &[attested(
+                "ci",
+                Some("https://github.com/acme/repo/.github/workflows/ci.yml@refs/heads/main"),
+            )],
+        );
+        assert_eq!(v.approvals_present, 0);
+        assert_eq!(v.decision, Decision::NeedsHuman);
+    }
+
+    #[test]
+    fn an_approval_signed_by_a_human_identity_counts() {
+        let v = human_policy().evaluate(
+            &contribution(&["src/main.rs"], TrustTier::Contributor),
+            &[attested(
+                "josh",
+                Some("https://github.com/login/oauth/josh"),
+            )],
+        );
+        assert_eq!(v.approvals_present, 1);
+        assert_eq!(v.decision, Decision::Satisfied);
+    }
+
+    #[test]
+    fn signed_approvals_are_counted_by_signer_not_by_claimed_producer() {
+        // One human, two records claiming different producers. Still one
+        // approval: otherwise a single party could satisfy a two-approval rule
+        // by varying a string.
+        let v = human_policy().evaluate(
+            &contribution(&["src/main.rs"], TrustTier::Contributor),
+            &[
+                attested("alice", Some("https://github.com/login/oauth/josh")),
+                attested("bob", Some("https://github.com/login/oauth/josh")),
+            ],
+        );
+        assert_eq!(v.approvals_present, 1);
+    }
+
+    #[test]
+    fn without_the_constraint_approvals_behave_as_before() {
+        // Existing policies must not change meaning under their feet.
+        let v = policy().evaluate(
+            &contribution(&["src/main.rs"], TrustTier::Contributor),
+            &[pass("build"), pass("tests"), approval("someone")],
+        );
+        assert_eq!(v.approvals_present, 1);
+        assert_eq!(v.decision, Decision::Satisfied);
     }
 }

@@ -18,6 +18,8 @@ which part of the context has changed.
 | [0006](0006-the-gate-must-resist-what-it-gates.md) | The gate must resist what it gates | accepted |
 | [0007](0007-actor-identity-is-a-delegation-chain.md) | Actor identity is a delegation chain, not a name | accepted |
 | [0008](0008-authorship-is-declared-not-detected.md) | Authorship is declared, not detected | accepted |
+| [0009](0009-trust-is-earned-from-merged-history.md) | Trust is earned from merged history, not asserted | accepted |
+| [0010](0010-an-attestation-needs-someone-to-attest.md) | An attestation needs someone to attest | accepted |
 
 ## Reading order
 

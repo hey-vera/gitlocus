@@ -146,9 +146,26 @@ require:
     lint: "*"
 ```
 
-The value is a glob matched against the verified signer identity. `*` accepts any
-verified signer, which still carries meaning: it demands that *somebody* is
-cryptographically answerable for the claim.
+The value is a glob matched against the verified signer identity.
+
+**A permissive glob is close to no constraint at all, and implementations SHOULD
+warn about one.** On a forge where anyone can run a workflow in their own fork,
+every such workflow gets a valid signing identity from the same issuer. A glob of
+`*`, or one matching only the issuer, therefore accepts a result produced by an
+arbitrary party running arbitrary code — which is the situation `signed_by`
+exists to prevent.
+
+A useful constraint pins the **workflow path**, not merely the issuer:
+
+```yaml
+signed_by:
+  tests: "https://github.com/acme/repo/.github/workflows/ci.yml@refs/heads/main"   # useful
+  lint: "https://token.actions.githubusercontent.com/*"                            # near-worthless
+```
+
+`*` remains permitted, because a project may legitimately want "somebody is
+cryptographically on the hook" while trusting the identity for other reasons. It
+should be a deliberate choice rather than a default.
 
 Naming a check in `signed_by` MUST also make that check required. A signature
 requirement on an otherwise optional check would silently do nothing, which is a

@@ -162,6 +162,8 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           AUTHOR: ${{ github.event.pull_request.user.login }}
           ASSOCIATION: ${{ github.event.pull_request.author_association }}
+          # How many merged pull requests earn the contributor tier (ADR 0009).
+          CONTRIBUTOR_AFTER: "1"
         run: |
           set -euo pipefail
 
@@ -188,6 +190,22 @@ jobs:
               esac
               ;;
           esac
+
+          # Promotion from merged history, per ADR 0009. Attribution comes from
+          # the forge, which authenticated the account, and never from the git
+          # author field — that is free text anyone can set to anything, so
+          # trust derived from it is trust anyone can mint.
+          #
+          # Nothing is stored: the count is recomputed here every run, so
+          # standing stays a fact about work done rather than a score to farm.
+          if [ "$TIER" = "unknown" ]; then
+            MERGED=$(gh api -X GET search/issues               -f q="repo:$REPO is:pr is:merged author:$AUTHOR"               --jq '.total_count' 2>/dev/null || echo 0)
+            if [ "${MERGED:-0}" -ge "$CONTRIBUTOR_AFTER" ]; then
+              TIER=contributor
+              SOURCE="$MERGED merged pull request(s)"
+            fi
+          fi
+
           echo "actor $AUTHOR at tier $TIER, from $SOURCE"
 
           # A VOUCHED.td can raise an unknown actor to vouched, and a

@@ -33,11 +33,32 @@ verdict is **content-addressable**: hash the inputs, cache the output, recompute
 freely. Purity was chosen for auditability and turns out to be what makes
 swarm-scale evaluation affordable. Do not give it up.
 
-**Cost is unsolved.** Standing limits what a swarm can bind. It does not limit
-what a swarm can *consume* — two hundred instances each opening a contribution
-each triggering CI is resource exhaustion, and ranking makes the queue survivable
-without making the compute free. Rate and priority tied to tier is the likely
-shape. It is not designed. This is the largest open problem in the swarm story.
+**Cost — a design, not yet built.** Standing limits what a swarm can bind. It
+does not limit what a swarm can *consume*: two hundred instances each opening a
+contribution each triggering CI is resource exhaustion, and ranking makes the
+queue survivable without making the compute free.
+
+The shape that fits this architecture is **bring your own evidence**. Evidence is
+already portable and signed, and evaluation is already separate from production —
+so an untrusted contributor can run the checks themselves and submit the result,
+and the project verifies a signature instead of spending its own compute. Cost
+lands on the party creating it.
+
+The trap is that a contributor running "the tests" can run *their* tests. The
+answer is structural rather than contractual: the project publishes a **reusable
+workflow**, the fork calls it, and the signing identity pins to the project's
+workflow rather than the caller's. A caller cannot reach the reusable workflow's
+OIDC token whatever it puts in its own YAML, so the identity attests that the
+project's check definition ran.
+
+This also explains why a permissive `signed_by` glob is close to worthless:
+accepting any identity from a forge's issuer accepts a workflow in anybody's
+fork, which is the situation the constraint exists to prevent.
+
+Still open: priority and rate allocation for repositories that would rather spend
+their own compute than require this. Tiered eligibility — repository CI runs
+automatically above a tier, on request below it — is the likely shape, and it is
+what forges already do informally for first-time contributors.
 
 ---
 
@@ -89,8 +110,22 @@ fixing the code. → [ADR 0006](adr/0006-the-gate-must-resist-what-it-gates.md).
 produce a correct fifty-file change, the human's claim to have controlled the
 expressive choices becomes thinner, and a single checkbox covering all fifty
 files becomes a rubber stamp. Granularity is therefore a security property rather
-than a UX preference. Named as unsolved in
-[ADR 0008](adr/0008-authorship-is-declared-not-detected.md).
+than a UX preference — see [ADR 0008](adr/0008-authorship-is-declared-not-detected.md).
+
+Three mechanisms, in increasing order of how much they help:
+
+1. **Silence is not a claim.** Absent a declaration, the weakest claim applies —
+   `generated`, uncopyrightable. Nobody accidentally acquires ownership by saying
+   nothing, and asserting authorship becomes a deliberate act.
+2. **Granularity scales with the strength of the claim.** Declaring `generated`
+   across fifty files costs one statement, because it asserts nothing. Declaring
+   `human` across fifty files requires fifty statements. The cost of a claim is
+   proportional to what it asserts, which is the property that keeps it honest as
+   models improve.
+3. **The harness emits, the human upgrades.** A harness knows which hunks it
+   produced, so it can emit `generated` per hunk by default; a person then raises
+   specific hunks. This is the durable answer, and it is another reason the
+   harness is the integration surface that matters (§2).
 
 **Changes meaning, not validity.** Human attestation. Today it usually means "I
 read this and it looks right". In a world where machines review better than
@@ -110,10 +145,10 @@ for it, because "what should exist" is what a policy is.
 | problem | ours? | mechanism |
 |---|---|---|
 | **Slopsquatting** — agents invent package names, attackers pre-register them | **yes** | deterministic: require a new dependency to have existed before the contribution and to meet a minimum age |
-| **Prompt injection via repository content** — issues and READMEs are attacker-controlled text your agents read | **partly** | class separation bounds review ([ADR 0003](adr/0003-evidence-classes.md)); agents with *write* access remain exposed and that is not solved here |
+| **Prompt injection via repository content** — issues and READMEs are attacker-controlled text your agents read | **partly** | class separation bounds review ([ADR 0003](adr/0003-evidence-classes.md)); a hijacked agent can no longer manufacture its own approval ([ADR 0010](adr/0010-an-attestation-needs-someone-to-attest.md)), so the escalation path to *merge* is closed. An agent with write access can still do damage that has nothing to do with contributions, and that is not our layer |
 | **Knowledge collapse** — `git blame` points at an agent and the reasoning was in a discarded chat log | **yes** | a declared, signed rationale bound to a revision. Not chain-of-thought: goal, alternatives rejected, constraint that forced the shape |
 | **Cost of agent work** | **yes** | already the pricing axis: metered on work done, never per seat or per agent |
-| **Trust bootstrapping** — how a new agent identity earns standing | **partly** | tiers exist; promotion rules do not |
+| **Trust bootstrapping** — how a new identity earns standing | **yes** | the ladder is now complete: permission → `maintainer`, merged history → `contributor`, `VOUCHED.td` → `vouched`, otherwise `unknown` ([ADR 0009](adr/0009-trust-is-earned-from-merged-history.md)). Nothing is stored; never derive from the git author field, which anyone can set |
 | Merge conflicts at machine speed | **no** | a structural merge that silently produces wrong behaviour is worse than a loud text conflict. Stays a non-goal |
 
 ---
