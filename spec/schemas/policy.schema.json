@@ -75,6 +75,11 @@
                   "minLength": 1
                 },
                 "default": {}
+              },
+              "approvals_signed_by": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Glob an attestation's verified signer must match to count as an approval. Without it, an approval is a record whose produced_by is a string the producer chose, so an agent can approve its own work. Point it at a human identity provider."
               }
             },
             "additionalProperties": false
