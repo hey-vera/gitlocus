@@ -54,17 +54,27 @@ jobs:
           toolchain: stable
           targets: ${{ matrix.target }}
 
-      - run: cargo build --release --locked -p locus-cli --target ${{ matrix.target }}
+      # Expansions are passed through env rather than interpolated into the
+      # script body. None of these values is attacker-controlled today, but a
+      # workflow that interpolates by habit will eventually interpolate a branch
+      # name or an issue title, and that one is a shell injection.
+      - name: Build
+        env:
+          TARGET: ${{ matrix.target }}
+        run: cargo build --release --locked -p locus-cli --target "$TARGET"
 
       - name: Package
         shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          RUNNER_OS_NAME: ${{ runner.os }}
         run: |
           set -euo pipefail
           mkdir -p dist
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            cp "target/${{ matrix.target }}/release/locus.exe" "dist/locus-${{ matrix.target }}.exe"
+          if [ "$RUNNER_OS_NAME" = "Windows" ]; then
+            cp "target/$TARGET/release/locus.exe" "dist/locus-$TARGET.exe"
           else
-            cp "target/${{ matrix.target }}/release/locus" "dist/locus-${{ matrix.target }}"
+            cp "target/$TARGET/release/locus" "dist/locus-$TARGET"
           fi
           ls -l dist
 
@@ -84,9 +94,11 @@ jobs:
     # environment in repository settings.
     environment: release
     permissions:
+      # Create the release and upload its assets.
       contents: write
-      # Required for Sigstore keyless signing of the attestation.
+      # Sigstore keyless signing exchanges this for a short-lived certificate.
       id-token: write
+      # Record the build provenance attestation against the repository.
       attestations: write
 
     steps:
@@ -115,14 +127,17 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.event.inputs.tag || github.ref_name }}
+          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           gh release create "$TAG" dist/* \
-            --repo "${{ github.repository }}" \
+            --repo "$REPO" \
             --title "$TAG" \
             --generate-notes \
             --verify-tag
-          echo "Verify a download with:" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          echo "gh attestation verify locus-<target> --repo ${{ github.repository }}" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "Verify a download with:"
+            echo '```'
+            echo "gh attestation verify locus-<target> --repo $REPO"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

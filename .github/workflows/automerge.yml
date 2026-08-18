@@ -34,7 +34,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
+      # Needed to enable auto-merge on a pull request.
       contents: write
+      # Needed to set the merge method on the pull request.
       pull-requests: write
     steps:
       - name: Arm this pull request
@@ -44,18 +46,20 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR: ${{ github.event.pull_request.number }}
-        run: gh pr merge "$PR" --squash --auto --repo "${{ github.repository }}" || true
+          REPO: ${{ github.repository }}
+        run: gh pr merge "$PR" --squash --auto --repo "$REPO" || true
 
       - name: Sweep pull requests opened before this workflow existed
         if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          gh pr list --repo "${{ github.repository }}" \
+          gh pr list --repo "$REPO" \
             --state open --draft=false --json number --jq '.[].number' \
           | while read -r pr; do
               [ -z "$pr" ] && continue
               echo "arming #$pr"
-              gh pr merge "$pr" --squash --auto --repo "${{ github.repository }}" || true
+              gh pr merge "$pr" --squash --auto --repo "$REPO" || true
             done

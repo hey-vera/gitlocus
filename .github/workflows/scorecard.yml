@@ -30,10 +30,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
+      # Upload the SARIF results to the security tab.
       security-events: write
-      # Required to publish results and receive the badge.
+      # Sign the published results so the badge reflects a verified run.
       id-token: write
+      # Read the repository being scored.
       contents: read
+      # Scorecard inspects workflow definitions and run history.
       actions: read
 
     steps:
