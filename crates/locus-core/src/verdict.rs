@@ -48,6 +48,17 @@ pub enum UnmetReason {
     /// Evidence exists but describes a different revision — typically a green
     /// result carried over from before a force-push.
     StaleSubject,
+    /// The policy demands a verified signature and the evidence carries none.
+    ///
+    /// Distinct from [`UnmetReason::Missing`] on purpose: the check ran and
+    /// reported a pass, but nothing establishes who produced that claim, so it
+    /// is a claim rather than a fact.
+    Unsigned,
+    /// Evidence is signed, but not by an identity the policy accepts.
+    ///
+    /// This is what stops a passing result produced on a laptop from standing in
+    /// for one produced by the repository's own CI.
+    WrongSigner,
 }
 
 /// One unsatisfied requirement.

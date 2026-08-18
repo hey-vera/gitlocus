@@ -16,7 +16,10 @@ requests.
 - [x] `locus` CLI: `verify`, `policy check`, `evidence emit`, `contribution`, `vouch check`
 - [x] Normative spec + JSON Schemas + conformance suite
 - [x] This repository gated by its own policy
-- [ ] Sigstore signing envelope for evidence
+- [~] Signature **verification** — `signed_by` policy constraints, enforced and
+      tested (spec §3.3.1, §3.4.1). The producer side — envelope and signing
+      tooling — is next, and until it lands nothing can populate a signer, so
+      `signed_by` rules will correctly refuse everything.
 - [x] `VOUCHED.td` reader for the `vouched` tier
 - [ ] **Gate-gaming resistance** — privileged check paths + `coverage-delta`
       ([ADR 0006](adr/0006-the-gate-must-resist-what-it-gates.md)). This closes a

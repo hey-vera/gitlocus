@@ -100,6 +100,22 @@ Evidence records SHOULD be transported as in-toto Statements with
 `predicateType: https://gitlocus.dev/contribution-evidence/v0`, the Contribution's
 `head_digest` as the statement subject, and the Evidence record as the predicate.
 
+#### 3.3.1 The signer
+
+An Evidence record MAY carry a `signer`: the cryptographically verified identity
+of whoever produced it.
+
+`signer` is **output only**. A verifier MUST ignore any `signer` present in
+input, and MUST populate it only after itself checking a signature. A signer is
+a conclusion a verifier reaches; it is never a claim a document makes.
+
+This requirement is not decoration. Every `signed_by` rule in every policy rests
+on it: an implementation that reads `signer` from input reduces forging a trusted
+CI identity to typing one into a file.
+
+An implementation that cannot verify signatures MUST leave `signer` absent. It
+MUST NOT approximate it from `produced_by`, which is self-asserted.
+
 ### 3.4 Policy
 
 A Policy is a versioned document stored **in the repository it governs**. A
@@ -116,6 +132,39 @@ the outcome. When several rules match:
 A change touching both ordinary source and CI configuration is therefore held to
 the CI rule. Any other combination lets a contributor weaken the rule that governs
 them by also touching a file governed by a weaker one.
+
+#### 3.4.1 Signature constraints
+
+A rule MAY require that a check carry a verified signature from a particular
+identity:
+
+```yaml
+require:
+  deterministic: [tests]
+  signed_by:
+    tests: "https://github.com/acme/repo/.github/workflows/ci.yml@refs/heads/main"
+    lint: "*"
+```
+
+The value is a glob matched against the verified signer identity. `*` accepts any
+verified signer, which still carries meaning: it demands that *somebody* is
+cryptographically answerable for the claim.
+
+Naming a check in `signed_by` MUST also make that check required. A signature
+requirement on an otherwise optional check would silently do nothing, which is a
+worse outcome than either alternative.
+
+Where several matching rules constrain the same check, **all** their globs MUST
+match the same Evidence record. A policy that says two things about one
+requirement is stricter, not ambiguous.
+
+Signature constraints MUST be evaluated only against Evidence that would
+otherwise satisfy the requirement. Otherwise a signed failure could mask an
+unsigned pass, or the reverse.
+
+Unmet signature constraints are reported as `unsigned` when no candidate carries
+a verified signer, and `wrong_signer` when one does but no glob accepts it. The
+distinction matters to whoever has to fix it.
 
 ### 3.5 Verdict
 
@@ -168,7 +217,10 @@ An implementation is conformant if it:
 3. treats `inconclusive` as unmet;
 4. unions requirements and takes the strictest approvals and tier across matching rules;
 5. produces byte-identical verdicts for identical inputs;
-6. evaluates the policy at the revision under evaluation.
+6. evaluates the policy at the revision under evaluation;
+7. never reads `signer` from input;
+8. rejects unsigned evidence against a `signed_by` requirement;
+9. rejects evidence signed by an identity no constraint accepts.
 
 The reference implementation lives in [`crates/locus-core`](../crates/locus-core);
 the test suite there is the executable form of this section.
@@ -184,9 +236,11 @@ the test suite there is the executable form of this section.
 
 Recorded rather than hidden. These are unresolved and feedback is wanted:
 
-1. **Signing.** v0 defines the payload, not the envelope. Sigstore keyless is the
-   likely default, but agents in CI and agents on a laptop have very different
-   key stories.
+1. **Signing.** The *verification* side is specified and enforced: §3.3.1 and
+   §3.4.1 define how a verified signer is established and constrained. What is
+   still open is the **envelope and producer tooling** — how a record gets
+   signed in the first place. Sigstore keyless is the likely default, but agents
+   in CI and agents on a laptop have very different key stories.
 2. **Blast radius.** Path globs are a crude proxy for risk. Whether something
    better can stay deterministic is unproven.
 3. **Evidence expiry.** Evidence is bound to a digest, but a passing test from six

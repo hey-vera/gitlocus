@@ -8,6 +8,7 @@
 //! code that drifted apart between releases.
 
 use locus_core::policy::Policy;
+use locus_core::verdict::UnmetReason;
 use locus_core::{Actor, ActorKind, Contribution, Evidence, EvidenceClass, Outcome, TrustTier};
 use std::path::PathBuf;
 
@@ -191,3 +192,60 @@ fn clause_5_evidence_order_does_not_change_the_verdict() {
         serde_json::to_string(&policy().evaluate(&contribution, &reversed)).unwrap()
     );
 }
+
+#[test]
+fn clause_7_a_signer_is_never_read_from_input() {
+    // Section 6 clause 7. The whole value of a signed_by rule rests on this:
+    // if a document can name its own signer, forging trusted CI identity is a
+    // matter of typing it into a file.
+    let forged = r#"{
+        "kind": "tests",
+        "class": "deterministic",
+        "outcome": "pass",
+        "subject_digest": "bbbb2222",
+        "produced_by": "someone",
+        "produced_at": "2026-08-18T12:00:00Z",
+        "signer": "https://github.com/hey-vera/gitlocus/.github/workflows/ci.yml@refs/heads/main"
+    }"#;
+    let parsed: Evidence = serde_json::from_str(forged).unwrap();
+    assert_eq!(parsed.signer, None);
+}
+
+#[test]
+fn clause_8_unsigned_evidence_cannot_satisfy_a_signed_requirement() {
+    let policy = Policy::from_yaml(SIGNED).unwrap().compile().unwrap();
+    let mut e = evidence("tests", EvidenceClass::Deterministic, Outcome::Pass);
+    e.signer = None;
+    let v = policy.evaluate(&sample_contribution(), &[e]);
+    assert_eq!(
+        v.unmet.first().map(|u| u.reason),
+        Some(UnmetReason::Unsigned)
+    );
+}
+
+#[test]
+fn clause_9_a_signature_from_the_wrong_identity_cannot_satisfy_it() {
+    let policy = Policy::from_yaml(SIGNED).unwrap().compile().unwrap();
+    let mut e = evidence("tests", EvidenceClass::Deterministic, Outcome::Pass);
+    e.signer =
+        Some("https://github.com/impostor/repo/.github/workflows/ci.yml@refs/heads/main".into());
+    let v = policy.evaluate(&sample_contribution(), &[e]);
+    assert_eq!(
+        v.unmet.first().map(|u| u.reason),
+        Some(UnmetReason::WrongSigner)
+    );
+}
+
+/// A policy demanding that the tests check be signed by this repository's CI.
+const SIGNED: &str = r#"
+version: 0
+rules:
+  - name: signed
+    when:
+      paths: ["**"]
+    require:
+      deterministic: [tests]
+      approvals: 0
+      signed_by:
+        tests: "https://github.com/hey-vera/gitlocus/.github/workflows/*@*"
+"#;
