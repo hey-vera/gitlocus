@@ -322,6 +322,7 @@ rules:
             produced_at: "2026-08-18T00:00:00Z".into(),
             source_uri: None,
             summary: None,
+            signer: None,
         }
     }
 
@@ -335,6 +336,7 @@ rules:
             produced_at: "2026-08-18T00:00:00Z".into(),
             source_uri: None,
             summary: None,
+            signer: None,
         }
     }
 

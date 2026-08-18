@@ -483,6 +483,9 @@ fn emit_evidence(action: EvidenceAction) -> Result<ExitCode> {
         produced_at,
         source_uri,
         summary,
+        // Emitting a record does not sign it. A signer only ever comes from
+        // verifying a bundle; see the note on the field itself.
+        signer: None,
     };
 
     println!("{}", serde_json::to_string(&evidence)?);

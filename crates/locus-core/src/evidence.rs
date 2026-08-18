@@ -54,6 +54,19 @@ pub struct Evidence {
     /// Free-form detail. Never parsed for control flow.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
+
+    /// Cryptographically verified identity of whoever signed this record.
+    ///
+    /// **This field is never read from input.** `skip_deserializing` is the
+    /// whole point of it: a signer is a conclusion the verifier reaches, not a
+    /// claim the document gets to make. Without that, forging a trusted
+    /// signature would be a matter of typing one into a JSON file, and every
+    /// `signed_by` rule in every policy would be decorative.
+    ///
+    /// It is populated only by code that has actually checked a signature —
+    /// in this workspace, only after `cosign` has verified a bundle.
+    #[serde(skip_deserializing, default, skip_serializing_if = "Option::is_none")]
+    pub signer: Option<String>,
 }
 
 impl Evidence {
@@ -84,7 +97,52 @@ mod tests {
             produced_at: "2026-08-18T00:00:00Z".into(),
             source_uri: None,
             summary: None,
+            signer: None,
         }
+    }
+
+    #[test]
+    fn a_signer_claimed_in_input_json_is_discarded() {
+        // The attack this defends against is not subtle: write the identity of
+        // a trusted CI workflow into an evidence file by hand and every
+        // signed_by rule in every policy becomes decorative. A signer is a
+        // conclusion a verifier reaches, never a claim a document makes.
+        let forged = r#"{
+            "kind": "tests",
+            "class": "deterministic",
+            "outcome": "pass",
+            "subject_digest": "abc",
+            "produced_by": "me",
+            "produced_at": "2026-08-18T00:00:00Z",
+            "signer": "https://github.com/hey-vera/gitlocus/.github/workflows/ci.yml@refs/heads/main"
+        }"#;
+
+        let parsed: Evidence = serde_json::from_str(forged).unwrap();
+        assert_eq!(
+            parsed.signer, None,
+            "a signer in input JSON must never survive parsing"
+        );
+    }
+
+    #[test]
+    fn a_verified_signer_survives_a_round_trip_through_serialisation() {
+        // Serialising is fine — the value is reported, and re-reading it drops
+        // it again, which forces a fresh verification rather than trust in a
+        // file. Both halves of that are deliberate.
+        let mut e = ev(EvidenceClass::Deterministic, Outcome::Pass, "abc");
+        e.signer = Some("https://example.com/workflow.yml@refs/heads/main".into());
+
+        let json = serde_json::to_string(&e).unwrap();
+        assert!(
+            json.contains("example.com"),
+            "a verified signer should be reported"
+        );
+
+        let reparsed: Evidence = serde_json::from_str(&json).unwrap();
+        assert_eq!(
+            reparsed.signer, None,
+            "re-reading must require re-verification"
+        );
     }
 
     #[test]

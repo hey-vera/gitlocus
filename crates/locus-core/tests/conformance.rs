@@ -65,6 +65,7 @@ fn evidence(kind: &str, class: EvidenceClass, outcome: Outcome) -> Evidence {
         produced_at: "2026-08-18T12:00:00Z".into(),
         source_uri: Some("https://github.com/hey-vera/gitlocus/actions/runs/1".into()),
         summary: None,
+        signer: None,
     }
 }
 
