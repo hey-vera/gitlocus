@@ -78,13 +78,25 @@ trust tier.
 cargo build --release
 ```
 
-Check that a policy parses:
+**1. Describe the change.** `locus` reads the facts out of git — you never write
+this document by hand:
 
 ```bash
-./target/release/locus policy check --policy .gitlocus/policy.yml
+./target/release/locus contribution --base main --head HEAD > contribution.json
 ```
 
-Evaluate a contribution:
+Add `--agent claude-code --operator you@example.com` when an agent did the work
+and you are answerable for it. That is the operator+agent pair, recorded rather
+than flattened.
+
+**2. Record what ran.** One evidence record per check:
+
+```bash
+./target/release/locus evidence emit --kind tests --class deterministic --outcome pass \
+  --subject "$(git rev-parse HEAD)" --produced-by local --produced-at "$(date -u +%FT%TZ)"
+```
+
+**3. Ask what it still needs:**
 
 ```bash
 ./target/release/locus verify --contribution contribution.json --evidence evidence.json
@@ -93,6 +105,17 @@ Evaluate a contribution:
 The exit code is zero only when the policy is satisfied. The same evaluation runs
 here and in CI out of the same crate, so a local verdict and the gate's verdict
 cannot disagree — if they ever do, that is a bug in this project.
+
+**Trust files.** If your project already has a `VOUCHED.td`, GitLocus reads it:
+
+```bash
+./target/release/locus vouch check --user someone
+./target/release/locus contribution --base main --head HEAD --vouched-file VOUCHED.td
+```
+
+A vouch raises an unknown actor to `vouched`. A denouncement caps the tier no
+matter what else was supplied, and says so on stderr — a downgrade nobody
+notices would be a bug.
 
 ## How this repository is built
 

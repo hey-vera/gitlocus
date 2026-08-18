@@ -164,14 +164,53 @@ jobs:
           ASSOCIATION: ${{ github.event.pull_request.author_association }}
         run: |
           set -euo pipefail
-          git diff --name-only "$BASE_SHA" "$HEAD_SHA" > changed.txt
-          # Authoritative where readable; a fork's read-only token cannot see it,
-          # in which case the script falls back to the public association and
-          # says so. See the note in describe_contribution.py.
+
+          # The repository permission is authoritative and does not depend on
+          # profile visibility. author_association reports only *publicly
+          # visible* association, so a maintainer with private org membership
+          # arrives as CONTRIBUTOR — it fails in the safe direction, which is
+          # exactly why it is easy to miss. A fork's read-only token cannot read
+          # the permission, so the association remains the fallback and the
+          # source is logged either way.
           PERMISSION=$(gh api "repos/$REPO/collaborators/$AUTHOR/permission" \
             --jq '.permission' 2>/dev/null || true)
-          export PERMISSION
-          python3 scripts/describe_contribution.py
+
+          case "$PERMISSION" in
+            admin|maintain) TIER=maintainer; SOURCE="repository permission $PERMISSION" ;;
+            write)          TIER=contributor; SOURCE="repository permission write" ;;
+            read|none)      TIER=unknown; SOURCE="repository permission $PERMISSION" ;;
+            *)
+              SOURCE="public association $ASSOCIATION (permission unreadable)"
+              case "$ASSOCIATION" in
+                OWNER|MEMBER|COLLABORATOR) TIER=maintainer ;;
+                CONTRIBUTOR)               TIER=contributor ;;
+                *)                         TIER=unknown ;;
+              esac
+              ;;
+          esac
+          echo "actor $AUTHOR at tier $TIER, from $SOURCE"
+
+          # A VOUCHED.td can raise an unknown actor to vouched, and a
+          # denouncement caps the tier regardless of what was derived above.
+          VOUCH_ARGS=""
+          if [ -f VOUCHED.td ]; then
+            VOUCH_ARGS="--vouched-file VOUCHED.td --platform github"
+            echo "consulting VOUCHED.td"
+          fi
+
+          # Built by the shipped command rather than by a script that only exists
+          # here: anything this repository needs in order to adopt GitLocus, an
+          # outside repository needs too.
+          ./target/release/locus contribution \
+            --base "$BASE_SHA" \
+            --head "$HEAD_SHA" \
+            --repository "github.com/$REPO" \
+            --actor "$AUTHOR" \
+            --tier "$TIER" \
+            --key-binding "https://token.actions.githubusercontent.com" \
+            $VOUCH_ARGS \
+            > contribution.json
+          cat contribution.json
 
       - name: Collect evidence from check runs
         env:

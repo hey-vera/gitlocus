@@ -15,6 +15,10 @@
 //! - [`policy::Policy`] — the repository's own rules, versioned in the repository.
 //! - [`verdict::Verdict`] — the reproducible output.
 //!
+//! [`vouch::VouchList`] is not a sixth type. It reads the `VOUCHED.td` file that
+//! `mitchellh/vouch` already put in a few hundred repositories, so that the
+//! social half of trust does not have to be reinvented here.
+//!
 //! The class distinction in [`evidence::EvidenceClass`] is the load-bearing idea:
 //! a passing test suite and a language model's opinion are both "evidence", and
 //! collapsing them into one confidence number is how review budgets get spent on
@@ -25,9 +29,11 @@ pub mod contribution;
 pub mod evidence;
 pub mod policy;
 pub mod verdict;
+pub mod vouch;
 
 pub use actor::{Actor, ActorKind, TrustTier};
 pub use contribution::Contribution;
 pub use evidence::{Evidence, EvidenceClass, Outcome};
 pub use policy::Policy;
 pub use verdict::{Decision, Verdict};
+pub use vouch::{VouchList, VouchStatus};

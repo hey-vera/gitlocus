@@ -5,9 +5,14 @@
 //! so a contributor can find out locally exactly what the gate will say. If these
 //! two ever disagree, that is a bug in this project and not a quirk of CI.
 
+mod git;
+
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
-use locus_core::{Contribution, Evidence, EvidenceClass, Outcome, Policy};
+use locus_core::{
+    Actor, ActorKind, Contribution, Evidence, EvidenceClass, Outcome, Policy, TrustTier, VouchList,
+    VouchStatus,
+};
 use std::fs;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
@@ -54,6 +59,51 @@ enum Command {
         #[command(subcommand)]
         action: EvidenceAction,
     },
+    /// Describe the change between two revisions, reading the facts from git.
+    ///
+    /// This is what makes the tool usable outside the repository that wrote it:
+    /// without it, adopting GitLocus means hand-writing the contribution
+    /// document, and nobody adopts a format they have to author by hand.
+    Contribution {
+        /// Revision the change is proposed against.
+        #[arg(long)]
+        base: String,
+        /// The proposed revision.
+        #[arg(long, default_value = "HEAD")]
+        head: String,
+        /// Canonical repository identifier. Derived from the remote when omitted.
+        #[arg(long)]
+        repository: Option<String>,
+        /// Remote to derive the repository identifier from.
+        #[arg(long, default_value = "origin")]
+        remote: String,
+        /// Identity of the actor. Defaults to the head commit's author email.
+        #[arg(long)]
+        actor: Option<String>,
+        /// Trust tier to record.
+        #[arg(long, value_enum, default_value_t = TierArg::Unknown)]
+        tier: TierArg,
+        /// Agent implementation identifier. Makes this agent-produced work.
+        #[arg(long)]
+        agent: Option<String>,
+        /// Human answerable for the agent's work. With --agent, makes a pair.
+        #[arg(long)]
+        operator: Option<String>,
+        /// OIDC subject or key the actor's signatures verify against.
+        #[arg(long)]
+        key_binding: Option<String>,
+        /// Trust file to consult, in the format used by mitchellh/vouch.
+        #[arg(long)]
+        vouched_file: Option<PathBuf>,
+        /// Platform to match identities against in the trust file.
+        #[arg(long, default_value = "github")]
+        platform: String,
+    },
+    /// Ask what a trust file says about an identity.
+    Vouch {
+        #[command(subcommand)]
+        action: VouchAction,
+    },
 }
 
 /// Policy subcommands.
@@ -97,6 +147,47 @@ enum EvidenceAction {
         #[arg(long)]
         summary: Option<String>,
     },
+}
+
+/// Vouch subcommands.
+#[derive(Subcommand)]
+enum VouchAction {
+    /// Report what a trust file says about an identity.
+    Check {
+        /// Path to the trust file.
+        #[arg(long, default_value = "VOUCHED.td")]
+        file: PathBuf,
+        /// Identity to look up.
+        #[arg(long)]
+        user: String,
+        /// Platform the identity belongs to.
+        #[arg(long, default_value = "github")]
+        platform: String,
+    },
+}
+
+/// Trust tier, as a CLI argument.
+#[derive(Copy, Clone, PartialEq, Eq, ValueEnum)]
+enum TierArg {
+    /// No established standing.
+    Unknown,
+    /// Someone the repository trusts will speak for them.
+    Vouched,
+    /// Has landed changes here before.
+    Contributor,
+    /// Carries review authority here.
+    Maintainer,
+}
+
+impl From<TierArg> for TrustTier {
+    fn from(value: TierArg) -> Self {
+        match value {
+            TierArg::Unknown => Self::Unknown,
+            TierArg::Vouched => Self::Vouched,
+            TierArg::Contributor => Self::Contributor,
+            TierArg::Maintainer => Self::Maintainer,
+        }
+    }
 }
 
 /// Output format for `verify`.
@@ -173,7 +264,150 @@ fn run() -> Result<ExitCode> {
             check_policy(&policy)
         }
         Command::Evidence { action } => emit_evidence(action),
+        Command::Contribution {
+            base,
+            head,
+            repository,
+            remote,
+            actor,
+            tier,
+            agent,
+            operator,
+            key_binding,
+            vouched_file,
+            platform,
+        } => describe_contribution(ContributionArgs {
+            base,
+            head,
+            repository,
+            remote,
+            actor,
+            tier,
+            agent,
+            operator,
+            key_binding,
+            vouched_file,
+            platform,
+        }),
+        Command::Vouch { action } => check_vouch(action),
     }
+}
+
+/// Inputs to `locus contribution`, grouped so the function signature stays legible.
+struct ContributionArgs {
+    base: String,
+    head: String,
+    repository: Option<String>,
+    remote: String,
+    actor: Option<String>,
+    tier: TierArg,
+    agent: Option<String>,
+    operator: Option<String>,
+    key_binding: Option<String>,
+    vouched_file: Option<PathBuf>,
+    platform: String,
+}
+
+fn describe_contribution(args: ContributionArgs) -> Result<ExitCode> {
+    let base_digest = git::resolve(&args.base)?;
+    let head_digest = git::resolve(&args.head)?;
+    let changed_paths = git::changed_paths(&base_digest, &head_digest)?;
+
+    let repository = match args.repository {
+        Some(explicit) => explicit,
+        None => git::repository_from_remote(&args.remote)?,
+    };
+
+    let id = match args.actor {
+        Some(explicit) => explicit,
+        None => git::author_email(&head_digest)?,
+    };
+
+    let kind = match (args.agent, args.operator) {
+        (Some(implementation), Some(operator)) => ActorKind::Pair {
+            implementation,
+            operator,
+        },
+        (Some(implementation), None) => ActorKind::Agent { implementation },
+        // An operator without an agent is a human doing their own work.
+        (None, _) => ActorKind::Human,
+    };
+
+    let mut tier: TrustTier = args.tier.into();
+
+    if let Some(path) = args.vouched_file {
+        let list = VouchList::parse(&read(&path)?);
+        match list.status(&args.platform, &id) {
+            VouchStatus::Denounced => {
+                // A denouncement caps the tier no matter what was asked for. A
+                // trust file and a command-line flag disagreeing about someone
+                // is a contradiction, and the safe reading of a contradiction
+                // about trust is the restrictive one. It is loud rather than
+                // silent because a downgrade nobody notices is a bug.
+                let reason = list
+                    .reason(&args.platform, &id)
+                    .unwrap_or("no reason given");
+                eprintln!(
+                    "locus: {id} is denounced in {} ({reason}); recording tier unknown",
+                    path.display()
+                );
+                tier = TrustTier::Unknown;
+            }
+            VouchStatus::Vouched if tier == TrustTier::Unknown => {
+                tier = TrustTier::Vouched;
+            }
+            // An actor who already holds a higher tier is not demoted by merely
+            // appearing in the file, and an absent actor is left as asked.
+            VouchStatus::Vouched | VouchStatus::Unknown => {}
+        }
+    }
+
+    let contribution = Contribution {
+        repository,
+        base_digest,
+        head_digest,
+        actor: Actor {
+            id,
+            kind,
+            tier,
+            key_binding: args.key_binding,
+        },
+        changed_paths,
+        forge_ref: None,
+    };
+
+    println!("{}", serde_json::to_string_pretty(&contribution)?);
+    Ok(ExitCode::SUCCESS)
+}
+
+fn check_vouch(action: VouchAction) -> Result<ExitCode> {
+    let VouchAction::Check {
+        file,
+        user,
+        platform,
+    } = action;
+
+    let list = VouchList::parse(&read(&file)?);
+    let status = list.status(&platform, &user);
+    let tier = locus_core::vouch::tier_for(status);
+
+    let label = match status {
+        VouchStatus::Vouched => "vouched",
+        VouchStatus::Denounced => "denounced",
+        VouchStatus::Unknown => "not mentioned",
+    };
+    print!("{platform}:{user} is {label}");
+    if let Some(reason) = list.reason(&platform, &user) {
+        print!(" ({reason})");
+    }
+    println!(" — tier {tier:?}");
+
+    // Non-zero for denounced, so a shell can branch on it without parsing text.
+    Ok(if status == VouchStatus::Denounced {
+        ExitCode::FAILURE
+    } else {
+        ExitCode::SUCCESS
+    })
 }
 
 fn verify(
