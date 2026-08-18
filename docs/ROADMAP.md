@@ -13,14 +13,25 @@ requests.
 
 - [x] Core model: Actor, Contribution, Evidence, Policy, Verdict
 - [x] Deterministic policy evaluation, shared by CLI and (later) server
-- [x] `locus` CLI: `verify`, `policy check`, `evidence emit`
+- [x] `locus` CLI: `verify`, `policy check`, `evidence emit`, `contribution`, `vouch check`
 - [x] Normative spec + JSON Schemas + conformance suite
 - [x] This repository gated by its own policy
 - [ ] Sigstore signing envelope for evidence
-- [ ] `VOUCHED.td` reader for the `vouched` tier
+- [x] `VOUCHED.td` reader for the `vouched` tier
 
 **Done when** a maintainer outside this project can adopt the CLI in their own CI
 and get a useful verdict.
+
+`locus contribution` was the missing half of that: until it existed, adopting
+GitLocus meant hand-writing the contribution document, and nobody adopts a
+format they have to author by hand. This repository's own gate now builds its
+contribution with the shipped command rather than a script that only exists
+here — whatever we need in order to adopt GitLocus, an outside repository needs
+too.
+
+Still outstanding before this stage is honestly done: **evidence is not signed.**
+It is structurally validated and bound to a revision, but nothing proves who
+produced it. That is the next piece of work, not a detail.
 
 ## Stage 1 — The gate as a service
 
