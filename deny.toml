@@ -18,17 +18,14 @@ ignore = []
 # under it. Strong copyleft is denied by omission rather than by a deny list, so
 # a new licence appearing in the tree fails loudly instead of slipping through.
 confidence-threshold = 0.93
+# Exactly the licences present in the current tree, and no more. A dependency
+# arriving under a licence not listed here fails the build on purpose: adding one
+# should be a decision someone makes, not a default someone inherits.
 allow = [
     "Apache-2.0",
-    "Apache-2.0 WITH LLVM-exception",
     "MIT",
-    "MIT-0",
-    "BSD-2-Clause",
-    "BSD-3-Clause",
-    "ISC",
     "Unicode-3.0",
     "Zlib",
-    "CC0-1.0",
 ]
 
 [bans]

@@ -16,6 +16,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  # Read-only by default; the audit job elevates for itself.
   contents: read
 
 concurrency:
