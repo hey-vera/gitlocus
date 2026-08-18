@@ -1,6 +1,11 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # GitLocus
 
+[![CI](https://github.com/hey-vera/gitlocus/actions/workflows/ci.yml/badge.svg)](https://github.com/hey-vera/gitlocus/actions/workflows/ci.yml)
+[![Supply chain](https://github.com/hey-vera/gitlocus/actions/workflows/supply-chain.yml/badge.svg)](https://github.com/hey-vera/gitlocus/actions/workflows/supply-chain.yml)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/hey-vera/gitlocus/badge)](https://scorecard.dev/viewer/?uri=github.com/hey-vera/gitlocus)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
 **Contribution provenance and policy for repositories in the agent era.**
 
 Producing a change is now cheap. Deciding whether to accept one is not. GitLocus

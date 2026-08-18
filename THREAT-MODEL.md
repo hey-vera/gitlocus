@@ -112,3 +112,14 @@ Honest gaps, tracked rather than buried:
 - **Tier assignment is out of scope in v0.** How an actor comes to hold
   `contributor` is left to the implementation, which means it is currently the
   weakest link in the chain.
+
+  A concrete instance of that weakness, found by running this gate on its own
+  first pull request: `author_association` in a workflow event payload reports
+  only *publicly visible* association. A maintainer whose organisation
+  membership is private arrives as `CONTRIBUTOR` while the REST API reports
+  `MEMBER`. Deriving a tier from it silently under-privileges maintainers — the
+  safe direction, but it made the gate block its own maintainers on paths only
+  maintainers may touch. The reference implementation now prefers the repository
+  collaborator permission and falls back to the association only when a
+  read-only fork token cannot read it, logging which source it used. A signal
+  that degrades quietly is worse than one that fails loudly.
