@@ -38,10 +38,24 @@ jobs:
 
       # zizmor audits workflows for injection, over-broad permissions, unpinned
       # actions and credential persistence.
+      #
+      # The pedantic persona stays on: it is what caught the template-injection
+      # findings this repository shipped with initially. The failure threshold is
+      # set at `low` so that purely informational findings are printed and read
+      # but do not block. Exactly one informational finding is outstanding, and
+      # it is a considered disagreement rather than an oversight:
+      #
+      #   superfluous-actions — suggests replacing dtolnay/rust-toolchain with
+      #   rustup in a script step. Declined: the action pins the toolchain and
+      #   selects components and cross-compilation targets declaratively, and
+      #   the runner's preinstalled Rust drifts without notice.
+      #
+      # Anything at low or above fails the build. Currently there are none.
       - uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054 # v0.6.2
         with:
           advanced-security: false
           persona: pedantic
+          min-severity: low
 
       # zizmor covers a great deal but does not assert the two rules this
       # project treats as absolute, so they are checked directly.
