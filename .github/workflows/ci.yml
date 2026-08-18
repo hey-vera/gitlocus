@@ -156,6 +156,7 @@ jobs:
         env:
           # Passed through env rather than interpolated: a branch name or a login
           # is attacker-controlled text and must never reach a script body.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -164,6 +165,12 @@ jobs:
         run: |
           set -euo pipefail
           git diff --name-only "$BASE_SHA" "$HEAD_SHA" > changed.txt
+          # Authoritative where readable; a fork's read-only token cannot see it,
+          # in which case the script falls back to the public association and
+          # says so. See the note in describe_contribution.py.
+          PERMISSION=$(gh api "repos/$REPO/collaborators/$AUTHOR/permission" \
+            --jq '.permission' 2>/dev/null || true)
+          export PERMISSION
           python3 scripts/describe_contribution.py
 
       - name: Collect evidence from check runs
