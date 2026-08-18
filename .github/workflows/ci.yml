@@ -113,31 +113,7 @@ jobs:
       # self-contained: a remote $ref would make every consumer's validation
       # depend on a live domain.
       - name: Schemas are valid and self-contained
-        run: |
-          python3 - <<'PY'
-          import json, pathlib, sys
-          failed = False
-          for path in sorted(pathlib.Path("spec/schemas").glob("*.json")):
-              doc = json.loads(path.read_text())
-              refs = []
-              def walk(node):
-                  if isinstance(node, dict):
-                      if "$ref" in node and isinstance(node["$ref"], str):
-                          refs.append(node["$ref"])
-                      for v in node.values():
-                          walk(v)
-                  elif isinstance(node, list):
-                      for v in node:
-                          walk(v)
-              walk(doc)
-              remote = [r for r in refs if not r.startswith("#")]
-              if remote:
-                  print(f"{path}: remote $ref not allowed: {remote}")
-                  failed = True
-              else:
-                  print(f"{path}: ok ({len(refs)} local refs)")
-          sys.exit(1 if failed else 0)
-          PY
+        run: python3 scripts/check_schemas.py
 
       - name: This repository's own policy compiles
         run: cargo run --locked -p locus-cli -- policy check --policy .gitlocus/policy.yml
@@ -145,15 +121,24 @@ jobs:
   # The gate: this project evaluated by this project. A policy engine whose
   # authors exempt themselves demonstrates nothing.
   #
+  # Evidence is collected from the forge's own check runs rather than inferred
+  # from this job's needs list. That matters for correctness: the ci-and-policy
+  # rule requires a workflow-audit check that lives in a different workflow, and
+  # a gate that could only observe its own workflow would report a verdict on
+  # part of the evidence while presenting it as the whole.
+  #
   # CI gates the machine-checkable half only. A verdict of needs_human is a
-  # success here — the outstanding approval is enforced by the branch ruleset,
-  # not by a workflow that could be edited in the same pull request it governs.
+  # success here - the outstanding approval is enforced by the branch ruleset,
+  # not by a workflow that could be edited in the pull request it governs.
   gate:
     name: gate
     if: github.event_name == 'pull_request'
     needs: [build, tests, lint, fmt, schema-validation]
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read  # Read the revision being evaluated.
+      checks: read    # Collect check-run outcomes as deterministic evidence.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -169,9 +154,8 @@ jobs:
 
       - name: Describe the contribution
         env:
-          # Via env rather than inline expansion: a branch or login is
-          # attacker-controlled text and must never be interpolated into a shell
-          # script body.
+          # Passed through env rather than interpolated: a branch name or a login
+          # is attacker-controlled text and must never reach a script body.
           REPO: ${{ github.repository }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -179,91 +163,46 @@ jobs:
           ASSOCIATION: ${{ github.event.pull_request.author_association }}
         run: |
           set -euo pipefail
-          # Trust tier is derived from the forge's own view of the author, which
-          # is the only tier signal available before the trust graph exists.
-          case "$ASSOCIATION" in
-            OWNER|MEMBER)  TIER=maintainer ;;
-            COLLABORATOR)  TIER=maintainer ;;
-            CONTRIBUTOR)   TIER=contributor ;;
-            *)             TIER=unknown ;;
-          esac
-          export TIER
           git diff --name-only "$BASE_SHA" "$HEAD_SHA" > changed.txt
-          python3 - <<'PY'
-          import json, os
-          paths = [l.strip() for l in open("changed.txt") if l.strip()]
-          json.dump({
-              "repository": "github.com/" + os.environ["REPO"],
-              "base_digest": os.environ["BASE_SHA"],
-              "head_digest": os.environ["HEAD_SHA"],
-              "actor": {
-                  "id": os.environ["AUTHOR"],
-                  "kind": "human",
-                  "tier": os.environ["TIER"],
-                  "key_binding": "https://token.actions.githubusercontent.com",
-              },
-              "changed_paths": paths,
-          }, open("contribution.json", "w"), indent=2)
-          print(f"{len(paths)} changed path(s)")
-          PY
+          python3 scripts/describe_contribution.py
 
-      - name: Collect deterministic evidence
+      - name: Collect evidence from check runs
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
-          LOCUS=./target/release/locus
-          # These five jobs are `needs:` dependencies, so reaching this step means
-          # every one of them succeeded. The evidence records that fact in the
-          # model's own vocabulary rather than asserting it independently.
-          : > evidence.ndjson
-          for KIND in build tests lint fmt schema-validation; do
-            "$LOCUS" evidence emit \
-              --kind "$KIND" \
-              --class deterministic \
-              --outcome pass \
-              --subject "$HEAD_SHA" \
-              --produced-by "github-actions" \
-              --produced-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-              --source-uri "$RUN_URL" >> evidence.ndjson
+          for attempt in $(seq 1 20); do
+            gh api "repos/$REPO/commits/$HEAD_SHA/check-runs" --paginate --jq '.check_runs' > raw.json
+            python3 scripts/flatten_checks.py
+            if python3 scripts/collect_evidence.py --pending-only; then
+              break
+            fi
+            echo "waiting for checks to finish (attempt $attempt)"
+            sleep 15
           done
-          python3 -c "import json,sys; json.dump([json.loads(l) for l in open('evidence.ndjson') if l.strip()], open('evidence.json','w'), indent=2)"
+          python3 scripts/collect_evidence.py
 
       - name: Evaluate
         run: |
           set -uo pipefail
           LOCUS=./target/release/locus
-          "$LOCUS" verify \
-            --policy .gitlocus/policy.yml \
-            --contribution contribution.json \
-            --evidence evidence.json | tee verdict.txt
-          "$LOCUS" verify \
-            --policy .gitlocus/policy.yml \
-            --contribution contribution.json \
-            --evidence evidence.json --format json > verdict.json || true
+          ARGS="--policy .gitlocus/policy.yml --contribution contribution.json --evidence evidence.json"
+
+          # A non-zero exit here is the CLI correctly reporting "not mergeable
+          # yet", which is not a CI failure. The decision below is what decides.
+          "$LOCUS" verify $ARGS | tee verdict.txt || true
+          "$LOCUS" verify $ARGS --format json > verdict.json || true
 
           DECISION=$(python3 -c "import json;print(json.load(open('verdict.json'))['decision'])")
+          python3 scripts/render_summary.py "$DECISION" >> "$GITHUB_STEP_SUMMARY"
 
-          {
-            echo "## GitLocus gate"
-            echo
-            echo '```'
-            cat verdict.txt
-            echo '```'
-            echo
-            case "$DECISION" in
-              satisfied)   echo "Every requirement met." ;;
-              needs_human) echo "Machine checks complete. The outstanding approval is enforced by the branch ruleset." ;;
-              blocked)     echo "**Blocked.** See the unmet requirements above." ;;
-            esac
-          } >> "$GITHUB_STEP_SUMMARY"
-
-          # needs_human is a pass here: the human half is the ruleset's job.
           if [ "$DECISION" = "blocked" ]; then
             echo "::error::gate blocked this contribution"
             exit 1
           fi
+          echo "gate decision: $DECISION"
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()

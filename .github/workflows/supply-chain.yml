@@ -153,6 +153,6 @@ jobs:
               echo "::error file=$f::missing SPDX-License-Identifier header"
               fail=1
             fi
-          done < <(find crates -name '*.rs' -type f)
+          done < <(find crates scripts -type f \( -name '*.rs' -o -name '*.py' \))
           [ "$fail" -eq 0 ] && echo "all source files carry SPDX headers"
           exit "$fail"
