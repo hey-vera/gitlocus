@@ -3,11 +3,18 @@
 # Release. A project whose subject is verifiable provenance cannot ship
 # unattested binaries — it would refute itself in the most literal way.
 #
-# Every artifact gets a signed SLSA build provenance attestation via Sigstore,
-# and the release is immutable: once published, assets and tag cannot be
-# changed. Verify a download with:
+# Every artifact gets a signed SLSA build provenance attestation via Sigstore.
+# Verify a download with:
 #
 #   gh attestation verify <file> --repo hey-vera/gitlocus
+#
+# On immutability, precisely: the "release tags" ruleset blocks deletion and
+# update of v* tags, so a published tag cannot be moved. GitHub's immutable
+# releases feature — which also freezes the assets — is a repository setting
+# that is not exposed on the API surface this project scripts against, so it
+# must be enabled in repository settings. Until it is, assets are protected by
+# the attestation rather than by the platform: a swapped file fails
+# verification, which is detection rather than prevention.
 
 name: Release
 
@@ -33,6 +40,13 @@ jobs:
     name: build (${{ matrix.target }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
+    # Windows runners default to PowerShell, where "$TARGET" is not the env var
+    # it looks like — it expands to nothing, and cargo reports "target was
+    # empty". Set once for the job rather than per step, so a step added later
+    # cannot reintroduce it.
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
@@ -64,7 +78,6 @@ jobs:
         run: cargo build --release --locked -p locus-cli --target "$TARGET"
 
       - name: Package
-        shell: bash
         env:
           TARGET: ${{ matrix.target }}
           RUNNER_OS_NAME: ${{ runner.os }}
