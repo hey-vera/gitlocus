@@ -18,8 +18,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  # Read-only by default; the analysis job elevates for itself.
-  contents: read
+  contents: read  # Read-only by default; the analysis job elevates for itself.
 
 concurrency:
   group: scorecard-${{ github.ref }}
@@ -31,14 +30,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
-      # Upload the SARIF results to the security tab.
-      security-events: write
-      # Sign the published results so the badge reflects a verified run.
-      id-token: write
-      # Read the repository being scored.
-      contents: read
-      # Scorecard inspects workflow definitions and run history.
-      actions: read
+      security-events: write  # Upload the SARIF results to the security tab.
+      id-token: write         # Sign published results so the badge is verifiable.
+      contents: read          # Read the repository being scored.
+      actions: read           # Scorecard inspects workflows and run history.
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

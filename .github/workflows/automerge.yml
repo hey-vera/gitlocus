@@ -22,8 +22,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  # Read-only by default; the arm job elevates for itself.
-  contents: read
+  contents: read  # Read-only by default; the arm job elevates for itself.
 
 concurrency:
   group: automerge-${{ github.event.pull_request.number || github.run_id }}
@@ -35,10 +34,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      # Needed to enable auto-merge on a pull request.
-      contents: write
-      # Needed to set the merge method on the pull request.
-      pull-requests: write
+      contents: write       # Enable auto-merge on the pull request.
+      pull-requests: write  # Set the merge method on the pull request.
     steps:
       - name: Arm this pull request
         if: >-

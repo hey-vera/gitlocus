@@ -22,9 +22,8 @@ on:
     - cron: "23 5 * * *"
   workflow_dispatch:
 
-# Read-only by default. Any job needing more asks for it explicitly.
 permissions:
-  contents: read
+  contents: read  # Read-only by default; no job here needs more.
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}

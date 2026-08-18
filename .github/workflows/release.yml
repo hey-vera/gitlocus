@@ -22,8 +22,7 @@ on:
         type: string
 
 permissions:
-  # Read-only by default; the publish job elevates for itself.
-  contents: read
+  contents: read  # Read-only by default; the publish job elevates for itself.
 
 concurrency:
   group: release-${{ github.ref }}
@@ -95,12 +94,9 @@ jobs:
     # environment in repository settings.
     environment: release
     permissions:
-      # Create the release and upload its assets.
-      contents: write
-      # Sigstore keyless signing exchanges this for a short-lived certificate.
-      id-token: write
-      # Record the build provenance attestation against the repository.
-      attestations: write
+      contents: write     # Create the release and upload its assets.
+      id-token: write     # Exchanged for a short-lived Sigstore certificate.
+      attestations: write # Record build provenance against the repository.
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

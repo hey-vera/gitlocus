@@ -15,8 +15,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  # Read-only by default; the analyze job elevates for itself.
-  contents: read
+  contents: read  # Read-only by default; the analyze job elevates for itself.
 
 concurrency:
   group: codeql-${{ github.workflow }}-${{ github.ref }}
@@ -28,12 +27,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
-      # Read the source being analysed.
-      contents: read
-      # Upload CodeQL results to the security tab.
-      security-events: write
-      # Read workflow run metadata, which the actions analysis needs.
-      actions: read
+      contents: read          # Read the source being analysed.
+      security-events: write  # Upload CodeQL results to the security tab.
+      actions: read           # Workflow run metadata, for the actions analysis.
     strategy:
       fail-fast: false
       matrix:

@@ -16,8 +16,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  # Read-only by default; the audit job elevates for itself.
-  contents: read
+  contents: read  # Read-only by default; the audit job elevates for itself.
 
 concurrency:
   group: supply-chain-${{ github.workflow }}-${{ github.ref }}
@@ -30,10 +29,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      # Read the workflows being audited.
-      contents: read
-      # zizmor uploads its findings as SARIF.
-      security-events: write
+      contents: read          # Read the workflows being audited.
+      security-events: write  # zizmor uploads its findings as SARIF.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
