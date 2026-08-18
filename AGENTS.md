@@ -41,16 +41,40 @@ wrong.
 1. **Assessed evidence must never satisfy a requirement.** Not with a high score,
    not with a confidence threshold, not behind a flag. If you find yourself adding
    a way for a model's judgement to unblock a merge, stop: that is the exact
-   failure this project exists to prevent.
+   failure this project exists to prevent. If you are about to argue that models
+   are reliable enough now, read
+   [ADR 0005](docs/adr/0005-evidence-classes-survive-better-models.md) first — it
+   was written to answer exactly that argument, and the answer does not depend on
+   model quality.
 2. **Evidence bound to a different revision must never count.** This is what stops
    a green result from before a force-push being credited to the code that
    replaced it.
 3. **`inconclusive` is unmet, never a pass.**
 4. **Verdicts are pure.** No clock, no network, no ambient state, and no
-   dependence on the order of the evidence array. There is a test for this.
+   dependence on the order of the evidence array. There is a test for this. Purity
+   is also what makes verdicts content-addressable and therefore cacheable at
+   swarm scale — do not trade it away for convenience.
 5. **No AI-authorship detection.** See
    [ADR 0002](docs/adr/0002-no-ai-authorship-detection.md). Do not add heuristics
-   that guess whether code was model-written.
+   that guess whether code was model-written. Recording what a named human
+   *declares* is a different thing and is allowed —
+   [ADR 0008](docs/adr/0008-authorship-is-declared-not-detected.md).
+6. **A signer is never read from input.** `Evidence::signer` is
+   `skip_deserializing` on purpose. If you make it deserializable, forging trusted
+   CI identity becomes a matter of typing it into a JSON file.
+7. **Never weaken a check to make a change pass.** Deleting an assertion, adding
+   an ignore attribute, loosening a matcher, or lowering a threshold to get a
+   green result is the specific failure
+   [ADR 0006](docs/adr/0006-the-gate-must-resist-what-it-gates.md) exists to stop.
+   If a check fails, either fix the code or say plainly that you could not.
+
+## Before proposing a design change
+
+Read [`docs/AGENT-ERA.md`](docs/AGENT-ERA.md). It records the problems this design
+is an answer to — including swarms, harnesses, and capability that does not exist
+yet — and names which problems are still unsolved. Proposals that re-solve a
+settled problem, or that quietly reintroduce one, are the main way a project like
+this drifts.
 
 ## Conventions
 

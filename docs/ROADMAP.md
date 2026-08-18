@@ -18,6 +18,15 @@ requests.
 - [x] This repository gated by its own policy
 - [ ] Sigstore signing envelope for evidence
 - [x] `VOUCHED.td` reader for the `vouched` tier
+- [ ] **Gate-gaming resistance** — privileged check paths + `coverage-delta`
+      ([ADR 0006](adr/0006-the-gate-must-resist-what-it-gates.md)). This closes a
+      hole that exists *today*: `tests: pass` binds even when the tests changed in
+      the same contribution. Honest evidence, false conclusion.
+- [ ] **Actor identity as a delegation chain**
+      ([ADR 0007](adr/0007-actor-identity-is-a-delegation-chain.md)). Cheap now;
+      the cost grows with every hour of trust history recorded under the flat shape.
+- [ ] Authorship records
+      ([ADR 0008](adr/0008-authorship-is-declared-not-detected.md))
 
 **Done when** a maintainer outside this project can adopt the CLI in their own CI
 and get a useful verdict.
@@ -40,7 +49,13 @@ A GitHub App and a hosted `locusd`, so adoption does not require wiring CI by ha
 - Evidence ingestion from Actions
 - Policy evaluation as a check run, with the verdict rendered in the PR
 - OpenAPI 3.1 contract, written before the server
-- MCP server over the same API, so agents reach it the way agents actually work
+- **MCP server, promoted in priority.** Provenance exists only at the moment of
+  production and the harness is the only thing present for it — so the harness,
+  not the forge, is the highest-value integration surface. Agents are evidence
+  *producers*, not only subjects. See
+  [AGENT-ERA §2](AGENT-ERA.md).
+- Verdict caching by content hash. Free consequence of `evaluate` being pure, and
+  what makes swarm-scale evaluation affordable rather than merely correct.
 
 **Constraint discovered during planning:** the target VPS (`clawguard`) has 2
 cores and 3.8 GiB RAM with existing workloads. Adequate for a pilot; not the scale
@@ -54,9 +69,14 @@ writing a workflow.
 The part that is actually the product: the ranked queue.
 
 - Web UI (TypeScript/React) generated against the Stage 1 OpenAPI contract
+- **The licence-integrity ledger** — what share of this codebase carries a human
+  authorship claim, who made it, and where the gaps are. The screen that speaks to
+  a solo developer ("is this mine?") and a CTO ("prove it across ten thousand
+  repositories") with one view.
 - Contributions ordered by what a maintainer can act on
 - Evidence rendered by class, so deterministic and assessed never look alike
-- Trust graph, deriving tiers from evidence history and `VOUCHED.td`
+- Trust graph, deriving tiers from evidence history and `VOUCHED.td`, with scope
+  attenuation enforced ([ADR 0007](adr/0007-actor-identity-is-a-delegation-chain.md))
 
 **Done when** a maintainer with a hundred open contributions can tell in under a
 minute which five to look at.
@@ -90,5 +110,16 @@ never gets built, and that is the correct outcome rather than a shortfall. See
 Tracked in [`spec/README.md` §8](../spec/README.md) — signing, blast radius,
 evidence expiry, cross-repository trust, and whether the predicate is registered
 with in-toto or namespaced under SLSA.
+
+Named as unsolved in [`AGENT-ERA.md`](AGENT-ERA.md), and more important than most
+of the above:
+
+- **Swarm cost.** Standing limits what a swarm can *bind*; nothing limits what it
+  can *consume*. Rate and priority tied to tier is the likely shape, undesigned.
+- **Declaration granularity.** A single authorship checkbox over fifty files is a
+  rubber stamp, and gets more so as models improve.
+- **Prompt injection against agents with write access.** Class separation bounds
+  review; it does nothing for an agent that can push.
+- **Trust bootstrapping.** Tiers exist. How an identity earns promotion does not.
 
 Feedback on any of these is more valuable right now than code.
