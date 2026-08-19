@@ -232,8 +232,13 @@ licence-headers:
 # The sign-off is this project's accountability mechanism: it is the statement
 # that a named human will answer for the change.
 
+# The head revision is named explicitly rather than taken as HEAD. On
+# `pull_request`, `actions/checkout` leaves HEAD at the merge ref, and GitHub
+# generates that merge commit without a sign-off — so `base..HEAD` reports a
+# missing trailer on a commit no contributor wrote.
+
 # Every commit on this branch is signed off.
-dco base="origin/main":
+dco base="origin/main" head="HEAD":
     #!/usr/bin/env bash
     set -euo pipefail
     fail=0
@@ -244,7 +249,7 @@ dco base="origin/main":
         echo "::error::missing Signed-off-by on $sha: $subject"
         fail=1
       fi
-    done < <(git rev-list "{{ base }}"..HEAD)
+    done < <(git rev-list "{{ base }}".."{{ head }}")
     if [ "$fail" -ne 0 ]; then
       echo "Fix with: git commit --amend -s   (or: git rebase --signoff {{ base }})"
       exit 1
