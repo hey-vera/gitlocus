@@ -77,6 +77,25 @@ jobs:
           TARGET: ${{ matrix.target }}
         run: cargo build --release --locked -p gitlocus-cli --target "$TARGET"
 
+      # A tag is a promise about what the binary reports. v0.0.2 shipped binaries
+      # that said 0.0.1, because the workspace version was never bumped and
+      # nothing looked. This checks the artifact rather than the source, and it
+      # runs natively on every target because each runner matches its own.
+      - name: The binary reports the version being released
+        env:
+          TARGET: ${{ matrix.target }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          BIN="target/$TARGET/release/locus"
+          [ -f "$BIN" ] || BIN="$BIN.exe"
+          REPORTED=$("$BIN" --version)
+          echo "tag $TAG, binary reports: $REPORTED"
+          if [ "$REPORTED" != "locus ${TAG#v}" ]; then
+            echo "::error::binary reports '$REPORTED' but is being released as $TAG"
+            exit 1
+          fi
+
       - name: Package
         env:
           TARGET: ${{ matrix.target }}
