@@ -10,6 +10,28 @@ release until v1. That is stated in the spec itself and it is not a formality.
 
 ## [Unreleased]
 
+### Added
+
+- **Authorship declarations.** An `attested` Evidence record may carry a claim of
+  `human`, `directed_agent`, `generated`, or `derived` with its source, and a
+  policy may say `authorship: [human, directed_agent]` to refuse generated work.
+  Silence is read as `generated`, so a contribution that declares nothing fails
+  such a rule — any weaker default would let undeclared work quietly claim
+  copyright. `locus authorship declare` emits the record. Specification §3.3.2,
+  conformance clause 10, ADR 0008.
+- **A composite action**, so adoption is five lines and needs no Rust toolchain.
+  It verifies the released binary's attestation before executing it.
+
+### Fixed
+
+- The evidence collector read a check run's `status` before its `conclusion`.
+  GitHub reports `in_progress` alongside `conclusion: success` and holds it for
+  minutes, so a check that had *passed* was recorded `inconclusive` and blocked a
+  contribution every check agreed with. A conclusion is authoritative.
+- The collector's exclusion list was hard-coded to this repository's job names,
+  so an adopter's own gate job would wait on itself until the retry budget ran
+  out. It now comes from the environment.
+
 ## [0.0.3] — 2026-08-19
 
 ### Added
