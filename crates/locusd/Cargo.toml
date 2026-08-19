@@ -18,6 +18,10 @@ license = "AGPL-3.0-only"
 # stability promise this does not yet make.
 publish = false
 
+[lib]
+name = "locusd"
+path = "src/lib.rs"
+
 [[bin]]
 name = "locusd"
 path = "src/main.rs"
@@ -31,3 +35,9 @@ tiny_http.workspace = true
 
 [lints]
 workspace = true
+
+# Integration tests are separate crates: they see the library API and these,
+# nothing else.
+[dev-dependencies]
+gitlocus-core.workspace = true
+serde_json.workspace = true
