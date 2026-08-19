@@ -77,7 +77,45 @@ that force this into one identity lose whichever half they discard. GitLocus
 records both, and an agent that nobody will answer for does not clear a meaningful
 trust tier.
 
-## Try it
+## Use it on your repository
+
+Five lines. No Rust toolchain, no contribution document written by hand.
+
+```yaml
+- uses: hey-vera/gitlocus@v0.0.3
+  with:
+    token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+The job needs `checks: read` so it can see your other checks, and `contents: read`.
+Write a policy at `.gitlocus/policy.yml` saying what a change must carry:
+
+```yaml
+version: 0
+rules:
+  - name: baseline
+    when:
+      paths: ["**"]
+    require:
+      deterministic: [build, tests]
+      approvals: 1
+```
+
+**Adopt it in observation mode first.** `fail-on-blocked: false` reports a verdict
+without gating anything, which is the honest way to find out what your repository
+already satisfies before letting it block a merge.
+
+The action downloads the released binary and **verifies its attestation before
+executing it**, offline against the bundle published with the release.
+
+One difference worth knowing: this repository does not use the action on itself.
+It builds the evaluator from the base revision instead, because `main` runs ahead
+of the last release and a gate should not judge a contribution with an evaluator
+older than the policy it is judged against — see
+[ADR 0014](docs/adr/0014-the-gate-is-built-from-the-base-revision.md). That is a
+stricter arrangement than the action, not a laxer one.
+
+## Try it locally
 
 ```bash
 cargo build --release
