@@ -116,6 +116,37 @@ CI identity to typing one into a file.
 An implementation that cannot verify signatures MUST leave `signer` absent. It
 MUST NOT approximate it from `produced_by`, which is self-asserted.
 
+#### 3.3.2 Authorship
+
+An Evidence record MAY carry an `authorship` claim: what a named party declares
+about how the change was produced.
+
+| claim | meaning |
+|---|---|
+| `human` | A person wrote it. Copyrightable by the declarer. |
+| `directed_agent` | An agent produced it; a person directed and revised the expressive choices and asserts creative control over them. |
+| `generated` | An agent produced it and nobody claims creative control. Likely uncopyrightable. |
+| `derived` | Copied or adapted from an identified external source. MUST carry `source`. |
+
+This is a **declaration, not a detection**. Nothing in this specification
+inspects source text to infer how it was produced, and an implementation that
+does so to populate this field is not conformant. What makes the claim worth
+anything is that a named party is answerable for it, which is the same
+instrument as a DCO sign-off.
+
+A verifier MUST honour `authorship` only on records of class `attested`.
+Accepting one on a `deterministic` or `assessed` record would let a test runner
+or a model declare authorship, which is exactly what the class separation in §3.3
+exists to prevent.
+
+**Absent means `generated`.** A Contribution carrying no authorship declaration
+MUST be evaluated as though it declared `generated`. Silence is not a claim: any
+stronger default would let every undeclared contribution assert copyright on the
+project's behalf, which is the dilution this mechanism exists to make visible.
+
+A verifier MUST NOT treat this record as a legal conclusion. It is evidence: a
+named party, a statement, and a timestamp.
+
 ### 3.4 Policy
 
 A Policy is a versioned document stored **in the repository it governs**. A
@@ -147,6 +178,8 @@ the outcome. When several rules match:
 - required deterministic check names MUST be unioned,
 - `approvals` MUST take the maximum demanded,
 - `min_tier` MUST take the strictest demanded.
+
+- accepted `authorship` claims MUST be **intersected**, not unioned.
 
 A change touching both ordinary source and CI configuration is therefore held to
 the CI rule. Any other combination lets a contributor weaken the rule that governs
@@ -258,7 +291,10 @@ An implementation is conformant if it:
    weaken the rule that governs it;
 7. never reads `signer` from input;
 8. rejects unsigned evidence against a `signed_by` requirement;
-9. rejects evidence signed by an identity no constraint accepts.
+9. rejects evidence signed by an identity no constraint accepts;
+10. evaluates an undeclared contribution as `generated`, honours an
+    `authorship` claim only on an `attested` record, and intersects the
+    accepted claims of every matching rule.
 
 The reference implementation lives in [`crates/gitlocus-core`](../crates/gitlocus-core);
 the test suite there is the executable form of this section.

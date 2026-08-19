@@ -55,6 +55,53 @@
       "type": "string",
       "description": "Free-form detail. Never parsed for control flow."
     },
+    "authorship": {
+      "type": "object",
+      "description": "What a named party declares about how the change was produced. Meaningful only on an attested record: a declaration is a party accepting responsibility, so honouring one on a deterministic or assessed record would let a machine declare authorship. Absent means generated - silence is not a claim.",
+      "required": [
+        "claim"
+      ],
+      "properties": {
+        "claim": {
+          "enum": [
+            "human",
+            "directed_agent",
+            "generated",
+            "derived"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Where derived work came from. Required when claim is derived."
+        },
+        "license": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Licence the derived work arrived under, where known."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "claim": {
+                "const": "derived"
+              }
+            },
+            "required": [
+              "claim"
+            ]
+          },
+          "then": {
+            "required": [
+              "source"
+            ]
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
     "signer": {
       "type": "string",
       "description": "Cryptographically verified identity of the signer. OUTPUT ONLY: a conformant implementation MUST ignore this field on input. A signer is a conclusion a verifier reaches, never a claim a document makes."

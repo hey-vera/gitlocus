@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //! Claims about a contribution, and how much each claim is worth.
 
+use crate::authorship::AuthorshipClaim;
 use serde::{Deserialize, Serialize};
 
 /// How much a claim is worth, and therefore how it may be used.
@@ -55,6 +56,20 @@ pub struct Evidence {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
 
+    /// What the producer declares about how the change was produced.
+    ///
+    /// Only meaningful on an `attested` record: a declaration is a party
+    /// accepting responsibility for a statement, and neither a test runner nor a
+    /// model can do that. A claim on a `deterministic` or `assessed` record is
+    /// ignored rather than honoured, because honouring it would let a machine
+    /// declare authorship — which is the thing this exists to make impossible.
+    ///
+    /// Absent means `generated`. Silence is not a claim, and a default of
+    /// anything stronger would let every unlabelled contribution quietly claim
+    /// copyright. See [`crate::authorship`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authorship: Option<AuthorshipClaim>,
+
     /// Cryptographically verified identity of whoever signed this record.
     ///
     /// **This field is never read from input.** `skip_deserializing` is the
@@ -97,6 +112,7 @@ mod tests {
             produced_at: "2026-08-18T00:00:00Z".into(),
             source_uri: None,
             summary: None,
+            authorship: None,
             signer: None,
         }
     }

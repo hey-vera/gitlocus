@@ -59,6 +59,15 @@ pub enum UnmetReason {
     /// This is what stops a passing result produced on a laptop from standing in
     /// for one produced by the repository's own CI.
     WrongSigner,
+    /// The policy constrains authorship and nobody declared any.
+    ///
+    /// Distinct from [`UnmetReason::WrongAuthorship`] because the fix differs:
+    /// this one needs somebody to make a statement, not a different statement.
+    /// Silence is read as `generated`, so this appears whenever a policy declines
+    /// generated work and the contribution says nothing.
+    Undeclared,
+    /// Authorship was declared, and the policy does not accept what was declared.
+    WrongAuthorship,
 }
 
 /// One unsatisfied requirement.

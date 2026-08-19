@@ -10,8 +10,8 @@ mod git;
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
 use gitlocus_core::{
-    Actor, ActorKind, Contribution, Evidence, EvidenceClass, Outcome, Policy, TrustTier, VouchList,
-    VouchStatus,
+    Actor, ActorKind, AuthorshipClaim, Contribution, Evidence, EvidenceClass, Outcome, Policy,
+    TrustTier, VouchList, VouchStatus,
 };
 use std::fs;
 use std::io::{self, Read};
@@ -107,11 +107,65 @@ enum Command {
         #[arg(long, default_value = "github")]
         platform: String,
     },
+    /// Declare how a change was produced.
+    ///
+    /// A declaration, never a detection. Nothing here inspects source text and
+    /// guesses: a named party states something and is answerable for it, which
+    /// is the same instrument as the DCO.
+    Authorship {
+        #[command(subcommand)]
+        action: AuthorshipAction,
+    },
     /// Ask what a trust file says about an identity.
     Vouch {
         #[command(subcommand)]
         action: VouchAction,
     },
+}
+
+/// Authorship subcommands.
+#[derive(Subcommand)]
+enum AuthorshipAction {
+    /// Emit an authorship declaration as JSON.
+    Declare {
+        /// What is being declared.
+        #[arg(long, value_enum)]
+        claim: ClaimArg,
+        /// Revision the declaration is about.
+        #[arg(long)]
+        subject: String,
+        /// The named party making the declaration. This is who is answerable.
+        #[arg(long)]
+        by: String,
+        /// RFC 3339 timestamp.
+        #[arg(long)]
+        produced_at: String,
+        /// Where derived work came from. Required with `--claim derived`.
+        #[arg(long)]
+        source: Option<String>,
+        /// Licence the derived work arrived under, where one is known.
+        #[arg(long)]
+        license: Option<String>,
+    },
+}
+
+/// Authorship claim, as a CLI argument.
+///
+/// Spelled the way a policy spells it. Clap's default would render this variant
+/// `directed-agent` while `.gitlocus/policy.yml` and the JSON both say
+/// `directed_agent`, and one name for one thing matters more here than clap's
+/// house style: the value a person types is the value they read back.
+#[derive(Copy, Clone, PartialEq, Eq, ValueEnum)]
+#[value(rename_all = "snake_case")]
+enum ClaimArg {
+    /// A human wrote it.
+    Human,
+    /// An agent produced it under a human who directed the expressive choices.
+    DirectedAgent,
+    /// An agent produced it and nobody claims creative control.
+    Generated,
+    /// Copied or adapted from an identified external source.
+    Derived,
 }
 
 /// Policy subcommands.
@@ -304,6 +358,7 @@ fn run() -> Result<ExitCode> {
             vouched_file,
             platform,
         }),
+        Command::Authorship { action } => declare_authorship(action),
         Command::Vouch { action } => check_vouch(action),
     }
 }
@@ -392,6 +447,51 @@ fn describe_contribution(args: ContributionArgs) -> Result<ExitCode> {
     };
 
     println!("{}", serde_json::to_string_pretty(&contribution)?);
+    Ok(ExitCode::SUCCESS)
+}
+
+fn declare_authorship(action: AuthorshipAction) -> Result<ExitCode> {
+    let AuthorshipAction::Declare {
+        claim,
+        subject,
+        by,
+        produced_at,
+        source,
+        license,
+    } = action;
+
+    let claim = match claim {
+        ClaimArg::Human => AuthorshipClaim::Human,
+        ClaimArg::DirectedAgent => AuthorshipClaim::DirectedAgent,
+        ClaimArg::Generated => AuthorshipClaim::Generated,
+        // A derived claim whose source is unknown says almost nothing, and the
+        // source is the whole value of it to anyone auditing the licence later.
+        ClaimArg::Derived => AuthorshipClaim::Derived {
+            source: source.context("--claim derived requires --source")?,
+            license,
+        },
+    };
+
+    let evidence = Evidence {
+        kind: "authorship".to_string(),
+        // Always attested, never a choice. A declaration is a party accepting
+        // responsibility for a statement, so a deterministic or assessed
+        // authorship record would be a machine declaring authorship.
+        class: EvidenceClass::Attested,
+        outcome: Outcome::Pass,
+        subject_digest: subject,
+        produced_by: by,
+        produced_at,
+        source_uri: None,
+        summary: None,
+        authorship: Some(claim),
+        // Declaring does not sign. Until the record carries a verified signer it
+        // is a statement whose author is self-asserted, which is exactly the gap
+        // approvals_signed_by exists to close for approvals.
+        signer: None,
+    };
+
+    println!("{}", serde_json::to_string(&evidence)?);
     Ok(ExitCode::SUCCESS)
 }
 
@@ -520,6 +620,7 @@ fn emit_evidence(action: EvidenceAction) -> Result<ExitCode> {
         produced_at,
         source_uri,
         summary,
+        authorship: None,
         // Emitting a record does not sign it. A signer only ever comes from
         // verifying a bundle; see the note on the field itself.
         signer: None,

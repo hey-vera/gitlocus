@@ -9,7 +9,9 @@
 
 use gitlocus_core::policy::{CompiledPolicy, Policy};
 use gitlocus_core::verdict::{Decision, UnmetReason};
-use gitlocus_core::{Actor, ActorKind, Contribution, Evidence, EvidenceClass, Outcome, TrustTier};
+use gitlocus_core::{
+    Actor, ActorKind, AuthorshipClaim, Contribution, Evidence, EvidenceClass, Outcome, TrustTier,
+};
 use std::path::PathBuf;
 
 fn spec_dir() -> PathBuf {
@@ -66,6 +68,7 @@ fn evidence(kind: &str, class: EvidenceClass, outcome: Outcome) -> Evidence {
         produced_at: "2026-08-18T12:00:00Z".into(),
         source_uri: Some("https://github.com/hey-vera/gitlocus/actions/runs/1".into()),
         summary: None,
+        authorship: None,
         signer: None,
     }
 }
@@ -88,6 +91,42 @@ fn serialised_evidence_matches_schema() {
             assert_valid("evidence.schema.json", &json);
         }
     }
+}
+
+#[test]
+fn serialised_authorship_declarations_match_schema() {
+    // The schema sets additionalProperties: false, so a field added to Evidence
+    // without being added here would be rejected — but only if something
+    // actually serialises one. Nothing did until this test.
+    for claim in [
+        AuthorshipClaim::Human,
+        AuthorshipClaim::DirectedAgent,
+        AuthorshipClaim::Generated,
+        AuthorshipClaim::Derived {
+            source: "https://github.com/acme/widgets".into(),
+            license: Some("Apache-2.0".into()),
+        },
+        AuthorshipClaim::Derived {
+            source: "a paper napkin".into(),
+            license: None,
+        },
+    ] {
+        let mut declaration = evidence("authorship", EvidenceClass::Attested, Outcome::Pass);
+        declaration.authorship = Some(claim.clone());
+        let json = serde_json::to_value(&declaration).unwrap();
+        assert_valid("evidence.schema.json", &json);
+    }
+}
+
+#[test]
+fn a_policy_constraining_authorship_matches_schema() {
+    let src = "version: 0\nrules:\n  - name: licence-integrity\n    when:\n      paths: [\"**\"]\n    require:\n      authorship: [human, directed_agent]\n";
+    let policy = Policy::from_yaml(src).expect("must parse");
+    assert_valid(
+        "policy.schema.json",
+        &serde_json::to_value(&policy).unwrap(),
+    );
+    policy.compile().expect("must compile");
 }
 
 #[test]
