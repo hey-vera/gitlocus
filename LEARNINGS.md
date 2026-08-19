@@ -45,7 +45,7 @@ direction:
 | the ruleset "restricts pushes to those paths to code owners" | it carries no path restriction at all | none — the claim was withdrawn; `.gitlocus/policy.yml` enforces `min_tier: maintainer` on those paths instead, which is the product's own mechanism |
 | the approval requirement gated merges | every merge to `main` logged `result=bypass`, so no rule in the ruleset had ever been evaluated | `just brief` — fails if the `main` ruleset gains a bypass actor |
 | the four documented commands were "the same commands CI runs" | CI passed `--locked` on all four and ran nine more checks besides, so a change could be green here and red on eleven required checks | `every_required_check_has_a_job_and_a_recipe` |
-| `cargo test --doc` kept "the model's documentation examples honest" | every fenced block in a doc comment is `yaml` or `text`, which rustdoc does not compile; the step reports `running 0 tests` | https://github.com/hey-vera/gitlocus/issues/57 |
+| `cargo test --doc` kept "the model's documentation examples honest" | every fenced block in a doc comment is `yaml` or `text`, which rustdoc does not compile; the step reported `running 0 tests` | `every_yaml_example_in_the_documentation_is_a_valid_policy` |
 
 Run it, read the output, quote it. Under-claiming costs nothing; over-claiming
 costs the benefit of the doubt on everything else you say.
@@ -137,6 +137,15 @@ host that cannot run it still gets every other check.
 
 **Guard:** `justfile` — the recipe prints the constraint and the exact list of
 recipes to run instead.
+
+### Nothing built the documentation until 2026-08-19
+
+`cargo doc` ran nowhere. `evidence.rs` and `policy.rs` are dense with
+`[`crate::thing`]` links and a broken one failed in no check — the first person
+to notice would have been a reader on docs.rs.
+
+**Guard:** `just doc`, which denies `rustdoc::broken_intra_doc_links` and is run
+by `just lint`, a required check.
 
 ### Do not stack pull requests here
 

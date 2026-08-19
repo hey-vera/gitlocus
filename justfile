@@ -61,6 +61,12 @@ ci: build tests lint fmt platforms schema-validation workflow-audit cargo-deny l
 build:
     {{ cargo }} build --all-targets --locked
 
+# `--doc` currently runs zero tests and is kept so that the first real doctest
+# is not silently skipped. What keeps the documentation's examples honest is
+# `every_yaml_example_in_the_documentation_is_a_valid_policy`, because those
+# examples are YAML and rustdoc compiles neither yaml nor text blocks - the
+# mechanism the old comment here claimed, and did not have.
+
 # The test suite, the doctests, and the evidence-collector tests.
 tests:
     {{ cargo }} test --all-targets --locked
@@ -68,8 +74,17 @@ tests:
     {{ python }} scripts/test_collect_evidence.py
 
 # Clippy over every target, warnings denied.
-lint:
+lint: doc
     {{ cargo }} clippy --all-targets --locked -- -D warnings
+
+# The same posture applied to the documentation rather than the code. Nothing
+# built the docs at all until 2026-08-19, so a broken `[`crate::thing`]` link -
+# and evidence.rs and policy.rs are dense with them - failed nowhere and would
+# have been discovered on docs.rs by a reader.
+
+# Documentation builds, with no broken intra-doc links.
+doc:
+    RUSTDOCFLAGS="-D warnings -D rustdoc::broken_intra_doc_links"       {{ cargo }} doc --no-deps --locked --workspace
 
 # Formatting, checked not applied.
 fmt:
