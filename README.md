@@ -6,14 +6,16 @@
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/hey-vera/gitlocus/badge)](https://scorecard.dev/viewer/?uri=github.com/hey-vera/gitlocus)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-**Contribution provenance and policy for repositories in the agent era.**
+**The merge decision, made properly — for senior engineers and the agents working
+alongside them.**
 
 Producing a change is now cheap. Deciding whether to accept one is not. GitLocus
 is a signed record of *how a contribution was produced*, a policy the repository
-owns that says what such a record must contain, and a gate that turns a pile of
-incoming work into a ranked queue with the evidence attached.
+owns that says what such a record must contain, and a verdict that is a pure
+function of the two — reproducible by anyone, on any host, offline.
 
-It runs on top of the forge you already use. It is not a GitHub replacement.
+It runs on top of the forge you use today. It is the kernel of a git platform,
+and that is where it is going.
 
 > **Status: v0.0.2, pre-release.** The spec is a draft and will break before v1.
 > The gate works and runs on this repository's own pull requests. Binaries carry
@@ -23,7 +25,7 @@ It runs on top of the forge you already use. It is not a GitHub replacement.
 
 ---
 
-## The problem
+## What the future needs
 
 In January 2026 curl ended its bug bounty after six years, 87 valid findings and
 over $100,000 paid. The valid-report rate had fallen from above 15% to under 5%
@@ -35,10 +37,10 @@ the cost of producing a plausible contribution collapsed, and the cost of checki
 one did not. Maintainer attention is the scarce resource, and nothing in the
 existing toolchain treats it that way.
 
-The instinct is to detect and reject AI-authored code. That does not work — final
-source text carries no reliable signal of how it was written, and it never will.
-The tractable question is not *who wrote this* but **what can be proven about it,
-and who is answerable for it.**
+The tractable question is not *who wrote this* — final source text carries no
+reliable signal of how it was written, and it never will. It is **what can be
+proven about this change, and who is answerable for it.** That is a fact about
+process, and process can be recorded at the moment it happens.
 
 ## The model
 
@@ -146,17 +148,33 @@ GitLocus's own policy lives in [`.gitlocus/policy.yml`](.gitlocus/policy.yml) an
 runs against every pull request here. A policy engine whose authors exempt
 themselves is not evidence of anything.
 
-## What this is not
+## What this converges
 
-- Not an AI-code detector. See [ADR 0002](docs/adr/0002-no-ai-authorship-detection.md).
-- Not a git host. See [ADR 0001](docs/adr/0001-evidence-not-a-forge.md).
-- Not a replacement for CI, Sigstore, SLSA, or Vouch — it composes with all four.
-- Not a reputation score. Standing is derived from evidence history; a stored
-  number is a number to farm.
+Everything below already exists somewhere. None of it exists in one place, and
+each piece answers only part of one question.
 
-Full list: [docs/NON-GOALS.md](docs/NON-GOALS.md).
+| from | the good idea | what it becomes here |
+|---|---|---|
+| GitHub | attestations, rulesets, the pull request as the unit of work | provenance that verifies offline against any host, and rules that live in *your* repository |
+| GitLab | source, CI and policy in one place | one place that also accepts work produced anywhere else |
+| Gerrit | change-centric review, evaluated per commit | a Contribution keyed by content digest — one object across every forge |
+| sourcehut | patch series and email interop | a mailed patch and a pull request get identical verdicts |
+| Radicle | sovereign, portable identity | standing that survives swarms: a durable triple, not instance names |
+| SLSA · in-toto · Sigstore | signed, portable provenance with a defined envelope | the contribution-layer predicate that stack is still missing |
+| Vouch | social trust as a plain file in the repository | read as-is, not reinvented |
 
-## Prior art this builds on rather than replaces
+The question every one of them exists to answer is the same: **should this change
+enter the trunk, and on whose authority?** Today that answer is an unportable pile
+of host-specific settings only the host can compute. Here it is a typed model, a
+policy versioned in your repository, and a pure function — a decision an auditor,
+a downstream consumer, or you can recompute offline, years later, from signed
+inputs.
+
+That engine is the kernel of a git platform, and it is being built first because
+it is the half that cannot be commoditised. Where this is going, and what the
+ordering costs: [ADR 0011](docs/adr/0011-the-kernel-of-a-git-platform.md).
+
+### Standards this composes with rather than reimplements
 
 - **[SLSA Source Track](https://slsa.dev/spec/v1.2/source-requirements)** (v1.2,
   approved Nov 2025) defines Source Provenance Attestations and leaves the evidence
@@ -174,7 +192,6 @@ Full list: [docs/NON-GOALS.md](docs/NON-GOALS.md).
 | [spec/](spec/) | The normative model and JSON Schemas |
 | [docs/adr/](docs/adr/) | Why things are the way they are |
 | [issues](https://github.com/hey-vera/gitlocus/issues) · [milestones](https://github.com/hey-vera/gitlocus/milestones) | What is being worked on, and the stages |
-| [docs/AGENT-ERA.md](docs/AGENT-ERA.md) | The problems this is an answer to — swarms, harnesses, and models that do not exist yet — and which remain unsolved |
 | [THREAT-MODEL.md](THREAT-MODEL.md) | What this defends against, and what it does not |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Including the AI-contribution policy |
 | [SECURITY.md](SECURITY.md) | Reporting a vulnerability |

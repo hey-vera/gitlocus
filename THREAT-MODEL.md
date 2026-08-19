@@ -25,8 +25,9 @@ plausible change that could have been shown to be unmergeable in six seconds.
 
 The last row is the sharpest one: whoever can change the policy can change every
 other answer. This is why `.gitlocus/**` and `.github/workflows/**` require
-maintainer standing in this repository's own policy, and why the ruleset restricts
-pushes to those paths to code owners.
+maintainer standing in this repository's own policy, and why CODEOWNERS routes
+review of those paths to a maintainer. The ruleset itself carries no path
+restriction.
 
 ## Threats this defends against
 
