@@ -22,6 +22,7 @@ which part of the context has changed.
 | [0010](0010-an-attestation-needs-someone-to-attest.md) | An attestation needs someone to attest | accepted |
 | [0011](0011-the-kernel-of-a-git-platform.md) | The kernel of a git platform | accepted |
 | [0012](0012-the-harness-is-the-integration-surface.md) | The harness is the integration surface | accepted |
+| [0013](0013-a-contribution-is-governed-by-base-and-head.md) | A contribution is governed by base and head together | accepted |
 
 ## Reading order
 

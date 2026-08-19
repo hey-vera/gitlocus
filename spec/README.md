@@ -122,6 +122,25 @@ A Policy is a versioned document stored **in the repository it governs**. A
 verifier MUST evaluate the Policy at the revision under evaluation, not a
 Policy fetched from elsewhere.
 
+Where a Policy exists at the Contribution's `base_digest`, a verifier MUST
+evaluate that one as well, and the Contribution is governed by both. Their
+requirements combine exactly as the requirements of several matching rules within
+one document do, so the governing Policy is never weaker than either.
+
+Evaluating only the revision under evaluation lets a Contribution delete the rule
+that would have blocked it and be judged by what remains — honest evaluation of a
+document the contributor wrote, reaching a conclusion the repository never agreed
+to. Evaluating only the base revision would mean a rule a Contribution adds never
+applies to the Contribution adding it. Together they give the safe reading of
+each: **a rule added binds immediately, and a rule removed keeps binding until the
+change removing it has itself been accepted.**
+
+Both documents come from the repository under evaluation, so this is a
+clarification of the paragraph above rather than an exception to it. A verifier
+MUST distinguish a Policy that is absent at `base_digest` — a first adoption,
+where evaluating the revision under evaluation alone is correct — from one it
+failed to read. It MUST NOT treat a read failure as absence.
+
 Every rule whose `when.paths` matches at least one changed path contributes to
 the outcome. When several rules match:
 
@@ -234,7 +253,9 @@ An implementation is conformant if it:
 3. treats `inconclusive` as unmet;
 4. unions requirements and takes the strictest approvals and tier across matching rules;
 5. produces byte-identical verdicts for identical inputs;
-6. evaluates the policy at the revision under evaluation;
+6. evaluates the policy at the revision under evaluation, together with the
+   policy at `base_digest` where one exists, so that a contribution cannot
+   weaken the rule that governs it;
 7. never reads `signer` from input;
 8. rejects unsigned evidence against a `signed_by` requirement;
 9. rejects evidence signed by an identity no constraint accepts.

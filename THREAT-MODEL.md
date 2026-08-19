@@ -39,21 +39,39 @@ another revision cannot satisfy a requirement. Covered by test
 **T2 — Laundering a model's opinion into an approval.** A confident-sounding AI
 review is treated as a passing check. *Defence:* class separation is enforced in
 the type system, not the presentation layer. An implementation that allows this is
-non-conformant by definition.
+non-conformant by definition. Covered by
+`clause_1_assessed_evidence_cannot_satisfy_a_requirement`.
 
 **T3 — Weak-rule shopping.** A contributor touches a leniently governed file
 alongside a strictly governed one, hoping the lenient rule applies. *Defence:*
 matching rules union their requirements and take the strictest approvals and tier.
+Covered by `clause_4_matching_rules_union_and_take_the_strictest`.
 
 **T4 — Inconclusive-as-pass.** A check crashes and the absence of a failure reads
-as success. *Defence:* `inconclusive` is unmet.
+as success. *Defence:* `inconclusive` is unmet. Covered by
+`clause_3_inconclusive_is_unmet_not_passed`.
 
 **T5 — Unattributable agent work.** An agent opens changes nobody will answer for.
 *Defence:* `ActorKind::Agent` carries no responsible human, and policies can
-require a tier such an actor cannot reach.
+require a tier such an actor cannot reach. Covered by
+`unattended_agents_have_no_responsible_human`.
 
 **T6 — Non-determinism hiding a bug.** A verdict that varies between runs cannot be
 audited. *Defence:* verdicts are pure functions; evidence ordering is tested.
+Covered by `clause_5_evidence_order_does_not_change_the_verdict`.
+
+**T7 — Rule deletion.** A contribution removes the rule that would have blocked
+it, and is judged by the policy it ships. The evidence is honest and the
+conclusion is one the repository never agreed to — the nastier sibling of T3,
+because there is no lenient rule to spot, only an absent strict one. *Defence:*
+the governing policy is the one at the base revision together with the one under
+evaluation, so a rule added binds immediately and a rule removed keeps binding
+until the change removing it has itself been accepted. Covered by
+`clause_6_a_contribution_cannot_weaken_the_policy_that_governs_it`.
+
+**Every entry above names a test.** An entry that cannot name one is a claim
+about prose, and prose has no CI. If a defence here is ever weakened, the named
+test is what fails.
 
 ## Threats this does NOT defend against
 
