@@ -15,8 +15,8 @@ that anybody had.
 
 That is the same category of mistake as reading `signer` from input, which
 [the signing work](0005-evidence-classes-survive-better-models.md) had just
-closed, and it is worse in consequence. It is also the concrete form of a problem
-[`AGENT-ERA.md`](../AGENT-ERA.md) listed as unsolved: **prompt injection against
+closed, and it is worse in consequence. It is also the concrete form of
+the problem this design has always treated as unsolved: **prompt injection against
 an agent with write access.**
 
 The attack needs no sophistication. An agent reads repository content — an issue

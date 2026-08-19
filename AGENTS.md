@@ -10,10 +10,16 @@ not because it needs to be kept out. What follows is what the gate will check.
 
 ## What this project is
 
-GitLocus is a contribution-provenance and policy layer. Five types carry the
-model — Actor, Contribution, Evidence, Policy, Verdict — and the normative
-definitions live in [`spec/README.md`](spec/README.md). Read that before changing
-anything in `crates/gitlocus-core`.
+GitLocus decides whether a change may enter a trunk, and makes that decision
+reproducible by anyone. Five types carry the model — Actor, Contribution,
+Evidence, Policy, Verdict — and the normative definitions live in
+[`spec/README.md`](spec/README.md). Read that before changing anything in
+`crates/gitlocus-core`.
+
+That engine is the kernel of a git platform and is being built first because it
+is the half that cannot be commoditised — see
+[ADR 0011](docs/adr/0011-the-kernel-of-a-git-platform.md) for where this is going
+and what the ordering costs.
 
 ## Build and test
 
@@ -120,11 +126,15 @@ as the weaker thing that is true.
 
 ## Before proposing a design change
 
-Read [`docs/AGENT-ERA.md`](docs/AGENT-ERA.md). It records the problems this design
-is an answer to — including swarms, harnesses, and capability that does not exist
-yet — and names which problems are still unsolved. Proposals that re-solve a
-settled problem, or that quietly reintroduce one, are the main way a project like
-this drifts.
+Read [`docs/adr/`](docs/adr/). Those records are where the problems this design
+answers are written down — including swarms, harnesses, and capability that does
+not exist yet — together with what each decision costs and which problems are
+still open. Proposals that re-solve a settled problem, or that quietly
+reintroduce one, are the main way a project like this drifts.
+
+Open questions that are not yet decisions live in the
+[issue list](https://github.com/hey-vera/gitlocus/issues) under the
+`open-question` label, not in a document.
 
 ## Conventions
 

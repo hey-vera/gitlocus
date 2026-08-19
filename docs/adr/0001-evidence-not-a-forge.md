@@ -1,8 +1,14 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # ADR 0001 — Build the evidence layer, not a forge
 
-- **Status:** accepted
+- **Status:** superseded by [0011](0011-the-kernel-of-a-git-platform.md)
 - **Date:** 2026-08-18
+
+> **Superseded.** The reasoning below is preserved because its central finding
+> still holds: building the hosting half first spends the budget on the commodity
+> half. [ADR 0011](0011-the-kernel-of-a-git-platform.md) keeps that finding and
+> replaces the framing — the destination is a platform, and the decision engine is
+> its kernel.
 
 ## Context
 
