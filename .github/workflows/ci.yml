@@ -252,11 +252,35 @@ jobs:
           done
           python3 scripts/collect_evidence.py
 
+      - name: Read the policy that governs this contribution
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          # A contribution is governed by the policy in force when it was
+          # proposed, not only by the one it ships. Without this, a pull request
+          # that deletes a rule is judged by a document that no longer contains
+          # it: honest evaluation of a file the contributor wrote, reaching a
+          # conclusion this repository never agreed to.
+          #
+          # Absence is legitimate — the change that first adds a policy has none
+          # to be governed by — and is kept apart from a read failure, which
+          # set -e turns into a blocked gate rather than a silent fallback.
+          if git cat-file -e "$BASE_SHA:.gitlocus/policy.yml" 2>/dev/null; then
+            git show "$BASE_SHA:.gitlocus/policy.yml" > base-policy.yml
+            echo "governed also by the policy at $BASE_SHA"
+          else
+            echo "no policy at $BASE_SHA; this contribution introduces one"
+          fi
+
       - name: Evaluate
         run: |
           set -uo pipefail
           LOCUS=./target/release/locus
           ARGS="--policy .gitlocus/policy.yml --contribution contribution.json --evidence evidence.json"
+          if [ -f base-policy.yml ]; then
+            ARGS="$ARGS --governing-policy base-policy.yml"
+          fi
 
           # A non-zero exit here is the CLI correctly reporting "not mergeable
           # yet", which is not a CI failure. The decision below is what decides.
@@ -279,5 +303,6 @@ jobs:
           path: |
             contribution.json
             evidence.json
+            base-policy.yml
             verdict.json
           retention-days: 14

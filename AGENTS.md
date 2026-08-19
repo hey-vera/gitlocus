@@ -99,6 +99,11 @@ same mistake — shipping a claim stronger than the implementation:
 | `skipped` counted as a deterministic pass | invariant 3 violated in the product, not the config |
 | crates named `locus-core` / `locus-cli` | both already taken on crates.io; unpublishable |
 | a step named "Publish immutable release" | see row two |
+| the gate evaluated "the policy" | it evaluated the one the pull request shipped, so a change deleting every rule came back `satisfied` |
+| conformance clause 6 was claimed | it was the only clause with no test, which is why the row above survived |
+| `locus --version` on the v0.0.2 release | reported `0.0.1`; the workspace version was never bumped |
+| the ruleset "restricts pushes to those paths to code owners" | it carries no path restriction at all |
+| the approval requirement gated merges | every merge to `main` logged `result=bypass`, so no rule in the ruleset had ever been evaluated |
 
 Run it, read the output, quote it. Under-claiming costs nothing; over-claiming
 costs the benefit of the doubt on everything else you say.
@@ -123,6 +128,23 @@ as the weaker thing that is true.
 - **A permissive `signed_by` glob is close to no constraint** — anyone can run a
   workflow in their own fork and get a valid identity from the same issuer. Pin
   the workflow path.
+- **The pull request body must end with a DCO trailer.** This repository sets
+  `web_commit_signoff_required` and takes the squash message from `PR_BODY`, so a
+  body without `Signed-off-by:` produces a squash commit that the setting
+  refuses. The failure surfaces as "the base branch policy prohibits the merge",
+  which points at the ruleset and is nothing to do with it.
+- **Commits must be signed, and the signing key is separate from the auth key.**
+  `required_signatures` is in the `main` ruleset. Sign with
+  `~/.ssh/id_ed25519_signing`, which has no passphrase so unattended commits
+  work; `~/.ssh/id_ed25519` is passphrase-protected and cannot sign in a script.
+- **Do not stack pull requests here.** `delete_branch_on_merge` is on, and when a
+  base branch is deleted GitHub marks every pull request targeting it as
+  *merged* — closed, unreopenable, and with none of its content in `main`. Two
+  slices were lost to this. Target `main` and land one at a time.
+- **On `pull_request`, `actions/checkout` gives you the merge ref**, so anything
+  read out of the working tree is the pull request's version of it. That is
+  correct for the code under test and wrong for anything that decides whether the
+  code may merge — see [ADR 0013](docs/adr/0013-a-contribution-is-governed-by-base-and-head.md).
 
 ## Before proposing a design change
 
