@@ -621,6 +621,33 @@ rules:
     }
 
     #[test]
+    fn a_policy_error_says_what_is_wrong_and_where() {
+        // The only thing a contributor with a broken policy ever sees. An error
+        // that renders to nothing turns "your glob is malformed" into silence,
+        // and there is no other diagnostic behind it.
+        let version = PolicyError::UnsupportedVersion { found: 99 }.to_string();
+        assert!(
+            version.contains("99"),
+            "must name the version found: {version}"
+        );
+        assert!(version.contains('0'), "and the one expected: {version}");
+
+        let glob = PolicyError::BadGlob {
+            rule: "ci-and-policy".into(),
+            pattern: "[".into(),
+        }
+        .to_string();
+        assert!(glob.contains("ci-and-policy"), "must name the rule: {glob}");
+        assert!(glob.contains('['), "and the pattern: {glob}");
+
+        let malformed = PolicyError::Malformed("expected a mapping".into()).to_string();
+        assert!(
+            malformed.contains("expected a mapping"),
+            "must carry the underlying reason: {malformed}"
+        );
+    }
+
+    #[test]
     fn version_mismatch_is_rejected() {
         let src = "version: 99\nrules: []\n";
         let err = Policy::from_yaml(src).unwrap().compile().unwrap_err();

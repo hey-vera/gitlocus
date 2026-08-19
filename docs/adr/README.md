@@ -15,7 +15,7 @@ which part of the context has changed.
 | [0003](0003-evidence-classes.md) | Evidence classes are enforced in the type system | accepted |
 | [0004](0004-rust-core-shared-by-cli-and-server.md) | One Rust core, shared by the CLI and the server | accepted |
 | [0005](0005-evidence-classes-survive-better-models.md) | Evidence classes survive better models | accepted |
-| [0006](0006-the-gate-must-resist-what-it-gates.md) | The gate must resist what it gates | accepted |
+| [0006](0006-the-gate-must-resist-what-it-gates.md) | The gate must resist what it gates | amended by 0015 |
 | [0007](0007-actor-identity-is-a-delegation-chain.md) | Actor identity is a delegation chain, not a name | accepted |
 | [0008](0008-authorship-is-declared-not-detected.md) | Authorship is declared, not detected | accepted |
 | [0009](0009-trust-is-earned-from-merged-history.md) | Trust is earned from merged history, not asserted | accepted |
@@ -24,6 +24,7 @@ which part of the context has changed.
 | [0012](0012-the-harness-is-the-integration-surface.md) | The harness is the integration surface | accepted |
 | [0013](0013-a-contribution-is-governed-by-base-and-head.md) | A contribution is governed by base and head together | accepted |
 | [0014](0014-the-gate-is-built-from-the-base-revision.md) | The gate is built from the base revision | accepted |
+| [0015](0015-mutation-testing-is-what-resists-gate-gaming.md) | Mutation testing is what resists gate gaming | accepted |
 
 ## Reading order
 

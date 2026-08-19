@@ -3,6 +3,14 @@
 
 - **Status:** accepted
 - **Date:** 2026-08-18
+- **Amended by:** [0015](0015-mutation-testing-is-what-resists-gate-gaming.md)
+
+> **The problem below is right; both mechanisms are wrong.** Privileged paths
+> cannot express "the tests" for a project with inline `#[cfg(test)]` modules,
+> which is idiomatic Rust and is what this repository has. And coverage delta
+> catches test *deletion*, not the weakening-in-place it is credited with here.
+> [ADR 0015](0015-mutation-testing-is-what-resists-gate-gaming.md) replaces both
+> with a mutation check and keeps privileged paths for the narrower job they do.
 
 ## Context
 

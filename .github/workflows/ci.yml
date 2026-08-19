@@ -118,6 +118,71 @@ jobs:
       - name: This repository's own policy compiles
         run: cargo run --locked -p gitlocus-cli -- policy check --policy .gitlocus/policy.yml
 
+  # Do the tests actually constrain the implementation, or do they merely run it?
+  #
+  # A green `tests` check is worth exactly what the tests are worth, and weakening
+  # a test is usually cheaper than fixing the code — the failure ADR 0006 names.
+  # Coverage cannot see it: loosening an assertion executes the same lines. A
+  # mutant that survives can, because it means nothing asserted the behaviour the
+  # mutant changed. See docs/adr/0015-mutation-testing-is-what-resists-gate-gaming.md.
+  #
+  # Scoped to the diff, so cost tracks the size of the change rather than the
+  # size of the codebase.
+  mutants:
+    name: mutants
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # The workflow-wide `-D warnings` has to come off here. A mutant often
+      # leaves an unused binding behind, and under -D warnings that fails to
+      # compile — cargo-mutants scores it "unviable" rather than running it, so
+      # the strict setting silently shrinks the number of mutants actually
+      # tested. Warnings are still denied by the lint job, which is where they
+      # belong.
+      RUSTFLAGS: ""
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # v1
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2.86.3
+        with:
+          tool: cargo-mutants@27.1.0
+
+      - name: Mutants in the changed lines
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          # Two dots, not three, to match how `locus contribution` computes
+          # changed paths: the comparison is between the revisions as they are.
+          git diff "$BASE_SHA" HEAD > pr.diff
+          if [ ! -s pr.diff ]; then
+            echo "no changes to mutate"
+            exit 0
+          fi
+          # A timed-out mutant is timing-dependent and therefore cannot be
+          # deterministic evidence. cargo-mutants exits non-zero for both
+          # surviving mutants and timeouts, and this job fails on either —
+          # stricter than inconclusive, so nothing is laundered into a pass.
+          # --no-shuffle keeps the ordering, and therefore the log, reproducible.
+          #
+          # Scoped to gitlocus-core deliberately, and not as a convenience. The
+          # CLI crate has no behavioural tests: 24 mutants survive there today,
+          # including changed_paths -> Ok(vec![]) which makes every verdict
+          # `satisfied`. Requiring it everywhere would fail every pull request
+          # touching the CLI for a gap that pull request did not create. Widening
+          # this to the whole workspace is #34, and the scope is the honest
+          # statement of what is covered rather than a threshold lowered to get
+          # a green result.
+          cargo mutants --in-diff pr.diff --package gitlocus-core \
+            --no-shuffle --colors=never
+
   # The gate: this project evaluated by this project. A policy engine whose
   # authors exempt themselves demonstrates nothing.
   #

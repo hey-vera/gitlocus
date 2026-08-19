@@ -38,3 +38,57 @@ impl Contribution {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::actor::{ActorKind, TrustTier};
+
+    fn contribution(repository: &str, base: &str, head: &str) -> Contribution {
+        Contribution {
+            repository: repository.into(),
+            base_digest: base.into(),
+            head_digest: head.into(),
+            actor: Actor {
+                id: "someone".into(),
+                kind: ActorKind::Human,
+                tier: TrustTier::Unknown,
+                key_binding: None,
+            },
+            changed_paths: Vec::new(),
+            forge_ref: None,
+        }
+    }
+
+    #[test]
+    fn identity_is_the_repository_and_both_digests() {
+        assert_eq!(
+            contribution("github.com/hey-vera/gitlocus", "aaaa", "bbbb").id(),
+            "github.com/hey-vera/gitlocus@aaaa..bbbb"
+        );
+    }
+
+    #[test]
+    fn identity_distinguishes_contributions_that_differ_in_any_component() {
+        // The identity appears in every verdict, so two different changes
+        // sharing one is not a cosmetic problem: it is two verdicts that cannot
+        // be told apart by the thing naming them.
+        let base = contribution("repo", "aaaa", "bbbb");
+        for other in [
+            contribution("other-repo", "aaaa", "bbbb"),
+            contribution("repo", "cccc", "bbbb"),
+            contribution("repo", "aaaa", "cccc"),
+        ] {
+            assert_ne!(base.id(), other.id());
+        }
+    }
+
+    #[test]
+    fn identity_ignores_where_it_was_observed() {
+        // A GitHub pull request, a GitLab merge request and a mailed patch
+        // series describing the same change are one contribution.
+        let mut observed = contribution("repo", "aaaa", "bbbb");
+        observed.forge_ref = Some("https://github.com/hey-vera/gitlocus/pull/1".into());
+        assert_eq!(observed.id(), contribution("repo", "aaaa", "bbbb").id());
+    }
+}
