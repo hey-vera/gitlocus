@@ -26,6 +26,7 @@ which part of the context has changed.
 | [0014](0014-the-gate-is-built-from-the-base-revision.md) | The gate is built from the base revision | accepted |
 | [0015](0015-mutation-testing-is-what-resists-gate-gaming.md) | Mutation testing is what resists gate gaming | accepted |
 | [0016](0016-locusd-lives-here-under-agpl.md) | locusd lives in this repository, under AGPL-3.0 | accepted |
+| [0017](0017-the-foundation-layer-is-executable.md) | The foundation layer is executable | accepted |
 
 ## Reading order
 

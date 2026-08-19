@@ -89,8 +89,14 @@ wrong.
 
 State lives in GitHub, not in a document someone has to remember to update:
 **open issues** are the work, **milestones** are the stages, **releases** are
-what shipped, and `docs/adr/` is why every decision is what it is. Start with
-the issue list.
+what shipped, and `docs/adr/` is why every decision is what it is.
+
+`just brief` prints all of it — open issues by milestone, the latest release, the
+last five merges, whether the service is answering, and whether the settings this
+project depends on are still set. It reads GitHub live and is never committed, so
+it cannot be stale. Start there, then read [LEARNINGS.md](LEARNINGS.md).
+[ADR 0017](docs/adr/0017-the-foundation-layer-is-executable.md) says why that is
+a command rather than a file.
 
 ## Verify before you claim
 
