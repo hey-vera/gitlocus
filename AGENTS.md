@@ -141,6 +141,10 @@ as the weaker thing that is true.
   base branch is deleted GitHub marks every pull request targeting it as
   *merged* — closed, unreopenable, and with none of its content in `main`. Two
   slices were lost to this. Target `main` and land one at a time.
+- **Auto-merge is armed on every pull request**, so one merges the moment its
+  checks go green. Push every commit you intend to include *before* that
+  happens; a follow-up pushed to a branch that has already merged is stranded
+  and needs its own pull request. This has happened twice.
 - **On `pull_request`, `actions/checkout` gives you the merge ref**, so anything
   read out of the working tree is the pull request's version of it. That is
   correct for the code under test and wrong for anything that decides whether the

@@ -96,6 +96,95 @@ jobs:
           components: rustfmt
       - run: cargo fmt --all --check
 
+  # `rust-version` in the workspace manifest is a promise to anyone whose
+  # toolchain is older than ours. It was declared and never compiled against,
+  # which makes it an assertion rather than a fact.
+  #
+  # The version is read out of the manifest rather than written here twice. A
+  # second copy would drift, and the drift would be silent in the direction that
+  # matters: the manifest would claim support this job never checked.
+  msrv:
+    name: msrv
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      - name: The declared minimum supported Rust version compiles
+        run: |
+          set -euo pipefail
+          MSRV=$(grep -m1 '^rust-version' Cargo.toml | sed 's/.*"\(.*\)"/\1/')
+          if [ -z "$MSRV" ]; then
+            echo "::error::no rust-version in the workspace manifest"
+            exit 1
+          fi
+          echo "manifest declares rust-version = $MSRV"
+          rustup toolchain install "$MSRV" --profile minimal --no-self-update
+          cargo "+$MSRV" build --locked --all-targets
+
+  # Three targets are released and, until now, one was tested. That gap already
+  # cost a release: v0.0.1's Windows build broke because a step ran under
+  # PowerShell, and nothing caught it until the tag was pushed and the tag
+  # ruleset correctly refused to let it be moved.
+  platform:
+    name: platform (${{ matrix.target }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    # Windows runners default to PowerShell, where "$VAR" expands to nothing.
+    # Set once for the job so a step added later cannot reintroduce it.
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      # Every target's result is wanted, not just the first failure: knowing
+      # that macOS also broke is the difference between one fix and two.
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-latest
+          - target: aarch64-apple-darwin
+            runner: macos-latest
+          - target: x86_64-pc-windows-msvc
+            runner: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # v1
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      # Each runner is native to its target, so the tests actually execute
+      # rather than merely linking.
+      - run: cargo test --locked --all-targets
+
+  # A matrix produces one check per leg, and a requirement name has to be
+  # stable — .gitlocus/policy.yml names checks, and "platform (aarch64-apple-
+  # darwin)" is not a name a policy should have to know. This collapses the
+  # matrix into one.
+  platforms:
+    name: platforms
+    needs: [platform]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every shipped target built and tested
+        env:
+          RESULT: ${{ needs.platform.result }}
+        run: |
+          set -euo pipefail
+          echo "matrix result: $RESULT"
+          if [ "$RESULT" != "success" ]; then
+            echo "::error::a target this project ships did not pass"
+            exit 1
+          fi
+
   schema-validation:
     name: schema-validation
     runs-on: ubuntu-latest
