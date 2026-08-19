@@ -96,9 +96,12 @@ runs:
           echo "no bundle in $VERSION; verifying against the attestation API"
           gh attestation verify locus-x86_64-unknown-linux-gnu --repo hey-vera/gitlocus
         fi
-        chmod +x locus-x86_64-unknown-linux-gnu
-        echo "$RUNNER_TEMP/gitlocus" >> "$GITHUB_PATH"
         mv locus-x86_64-unknown-linux-gnu locus
+        chmod +x locus
+        # Deliberately not added to GITHUB_PATH. Writing to that file changes
+        # how every later step in the *caller's* job resolves commands, which is
+        # a larger grant than this action needs and one zizmor flags at high
+        # severity. The binary is invoked by its full path instead.
         ./locus --version
 
     - name: Describe the contribution
@@ -163,7 +166,7 @@ runs:
           echo "consulting $VOUCHED_FILE"
         fi
 
-        locus contribution \
+        "$WORK/locus" contribution \
           --base "$BASE_SHA" \
           --head "$HEAD_SHA" \
           --repository "github.com/$REPO" \
@@ -240,8 +243,8 @@ runs:
 
         # A non-zero exit here is the CLI correctly reporting "not mergeable
         # yet", which is not a failure of this step. The decision below decides.
-        locus verify $ARGS | tee "$WORK/verdict.txt" || true
-        locus verify $ARGS --format json > "$WORK/verdict.json" || true
+        "$WORK/locus" verify $ARGS | tee "$WORK/verdict.txt" || true
+        "$WORK/locus" verify $ARGS --format json > "$WORK/verdict.json" || true
 
         DECISION=$(python3 -c "import json;print(json.load(open('$WORK/verdict.json'))['decision'])")
         echo "decision=$DECISION" >> "$GITHUB_OUTPUT"
