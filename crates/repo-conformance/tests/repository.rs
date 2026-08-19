@@ -537,6 +537,131 @@ fn every_version_string_matches_the_workspace_version() {
     assert!(wrong.is_empty(), "version drift:\n{}", wrong.join("\n"));
 }
 
+// --- learnings carry a guard ---------------------------------------------------
+
+/// LEARNINGS.md says a learning without a guard is a note, and notes decay into
+/// folklore a new contributor has no reason to read. This asserts that the claim
+/// to have one is not empty, and that anything it names exists.
+///
+/// It cannot assert that a guard is any *good*. Claiming one that does not hold
+/// would be the same failure as every row in that table, which is why the forms
+/// it accepts are the ones that can be checked: a test that exists, a path that
+/// exists, a recipe that exists, an issue, or an explicit `none` with a reason.
+/// Two guards written for that file named tests that did not exist, and this is
+/// what found them.
+#[test]
+fn every_learning_has_a_guard() {
+    let text = read("LEARNINGS.md");
+    let mut problems = Vec::new();
+
+    let mut rows = 0;
+    for line in section(&text, "## Claims shipped stronger than the implementation").lines() {
+        let cells: Vec<&str> = line.trim().split('|').map(str::trim).collect();
+        // A row is `| claimed | actual | guard |`, so splitting gives two empty
+        // outer cells. The header and its underline are skipped by name.
+        if cells.len() != 5 || cells[1] == "claimed" || cells[1].starts_with("---") {
+            continue;
+        }
+        rows += 1;
+        check_guard(
+            cells[3],
+            &format!("row {:?}", truncate(cells[1])),
+            &mut problems,
+        );
+    }
+    assert!(rows >= 16, "parsed {rows} rows; this test has gone blind");
+
+    let traps = section(&text, "## Traps worth not rediscovering");
+    let mut heading: Option<String> = None;
+    let mut guarded = true;
+    let mut traps_seen = 0;
+    for line in traps.lines() {
+        if let Some(title) = line.strip_prefix("### ") {
+            if let Some(previous) = heading.take()
+                && !guarded
+            {
+                problems.push(format!("trap {previous:?} states no guard"));
+            }
+            heading = Some(truncate(title));
+            traps_seen += 1;
+            guarded = false;
+        } else if let Some(guard) = line.strip_prefix("**Guard:**") {
+            guarded = true;
+            let name = heading.clone().unwrap_or_default();
+            check_guard(guard, &format!("trap {name:?}"), &mut problems);
+        }
+    }
+    if let Some(last) = heading
+        && !guarded
+    {
+        problems.push(format!("trap {last:?} states no guard"));
+    }
+    assert!(
+        traps_seen >= 10,
+        "parsed {traps_seen} traps; this test has gone blind"
+    );
+
+    assert!(problems.is_empty(), "learnings:\n{}", problems.join("\n"));
+}
+
+fn truncate(s: &str) -> String {
+    s.chars().take(48).collect()
+}
+
+/// A guard names a test, a path, a recipe, an issue, or nothing with a reason.
+fn check_guard(guard: &str, what: &str, problems: &mut Vec<String>) {
+    let guard = guard.trim();
+    if guard.is_empty() {
+        problems.push(format!("{what} has an empty guard"));
+        return;
+    }
+    if let Some(reason) = guard.strip_prefix("none") {
+        // An em dash, a hyphen or a space may separate `none` from its reason.
+        let reason = reason.trim_start_matches(['\u{2014}', '-', ' ']);
+        if reason.trim().len() < 10 {
+            problems.push(format!(
+                "{what} claims no guard is possible without saying why"
+            ));
+        }
+        return;
+    }
+    if guard.contains("github.com/hey-vera/gitlocus/issues/") {
+        return;
+    }
+
+    let Some(named) = guard.split('`').nth(1) else {
+        problems.push(format!("{what} names nothing checkable: {guard:?}"));
+        return;
+    };
+    if let Some(recipe) = named.strip_prefix("just ") {
+        if !just_recipes().contains(recipe.trim()) {
+            problems.push(format!(
+                "{what} names recipe `{recipe}`, which the justfile does not define"
+            ));
+        }
+        return;
+    }
+    // A path is tried before a test name because `justfile` is a legitimate
+    // guard and looks like an identifier.
+    if root().join(named).exists() || any_source_contains(&format!("fn {named}")) {
+        return;
+    }
+    problems.push(format!(
+        "{what} names `{named}`, which is neither a path in this repository nor a test in it"
+    ));
+}
+
+/// Whether any Rust source in the workspace contains `needle`.
+fn any_source_contains(needle: &str) -> bool {
+    let mut files = Vec::new();
+    walk(&root().join("crates"), &mut files, &|p| {
+        p.extension().is_some_and(|e| e == "rs")
+    });
+    files
+        .iter()
+        .any(|p| fs::read_to_string(p).is_ok_and(|t| t.contains(needle)))
+}
+
 // --- what is deliberately not asserted here ------------------------------------
 //
 // SPDX headers: `just licence-headers` already checks every source file against
