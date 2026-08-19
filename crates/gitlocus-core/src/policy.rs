@@ -88,9 +88,15 @@ pub struct Require {
     /// That is the exact situation this field exists to prevent.
     ///
     /// ```yaml
-    /// signed_by:
-    ///   tests: "https://github.com/acme/repo/.github/workflows/ci.yml@refs/heads/main"
-    ///   lint: "*"
+    /// version: 0
+    /// rules:
+    ///   - name: ci
+    ///     when:
+    ///       paths: ["**"]
+    ///     require:
+    ///       signed_by:
+    ///         tests: "https://github.com/acme/repo/.github/workflows/ci.yml@refs/heads/main"
+    ///         lint: "*"   # accepts anyone's fork; see above
     /// ```
     ///
     /// This is what stops a passing result produced on a laptop from standing in
@@ -112,8 +118,14 @@ pub struct Require {
     /// "an unwanted contribution was merged".
     ///
     /// ```yaml
-    /// approvals: 1
-    /// approvals_signed_by: "https://github.com/login/oauth/*"
+    /// version: 0
+    /// rules:
+    ///   - name: baseline
+    ///     when:
+    ///       paths: ["**"]
+    ///     require:
+    ///       approvals: 1
+    ///       approvals_signed_by: "https://github.com/login/oauth/*"
     /// ```
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approvals_signed_by: Option<String>,
@@ -124,8 +136,13 @@ pub struct Require {
     /// claim constrains all of them: what is not named is refused.
     ///
     /// ```yaml
-    /// require:
-    ///   authorship: [human, directed_agent]   # generated code cannot enter
+    /// version: 0
+    /// rules:
+    ///   - name: no-generated-code
+    ///     when:
+    ///       paths: ["**"]
+    ///     require:
+    ///       authorship: [human, directed_agent]   # generated code cannot enter
     /// ```
     ///
     /// **Silence is read as `generated`.** A contribution that declares nothing
