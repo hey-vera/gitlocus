@@ -7,9 +7,10 @@ import sys
 EXPLANATION = {
     "satisfied": "Every requirement the policy asks for is present.",
     "needs_human": (
-        "Machine checks are complete and agree. The outstanding approval is "
-        "enforced by the branch ruleset, not by this workflow - a workflow can "
-        "be edited in the same pull request it governs."
+        "Machine checks are complete and agree. The outstanding approval is for "
+        "your branch protection to enforce, not this workflow - a workflow can "
+        "be edited in the same pull request it governs, so anything it enforced "
+        "would be editable by whoever it was enforcing against."
     ),
     "blocked": "**Blocked.** See the unmet requirements above.",
 }

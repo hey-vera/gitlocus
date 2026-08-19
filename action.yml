@@ -1,0 +1,258 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Adoption in five lines. This is the whole point of the action: a repository
+# that wants a verdict should not have to install a Rust toolchain, write the
+# contribution document by hand, or know how evidence is collected.
+#
+#   - uses: hey-vera/gitlocus@v0.0.3
+#     with:
+#       token: ${{ secrets.GITHUB_TOKEN }}
+#
+# Everything this repository's own gate does, it does through here.
+
+name: GitLocus
+description: Evaluate a contribution against the policy the repository owns.
+author: The GitLocus Authors
+
+branding:
+  icon: check-circle
+  color: purple
+
+inputs:
+  token:
+    description: >-
+      Token used to read check runs and the contributor's repository permission.
+      Needs `checks: read` and `contents: read`; GITHUB_TOKEN is enough.
+    required: true
+  policy:
+    description: Path to the policy document, relative to the repository root.
+    required: false
+    default: .gitlocus/policy.yml
+  version:
+    description: >-
+      Release of the locus binary to run. Pinned by default to the release this
+      action shipped with, so the evaluator does not change under a caller who
+      pinned the action.
+    required: false
+    default: v0.0.3
+  vouched-file:
+    description: Trust file to consult, in the format used by mitchellh/vouch.
+    required: false
+    default: VOUCHED.td
+  contributor-after:
+    description: How many merged pull requests earn the contributor tier.
+    required: false
+    default: "1"
+  fail-on-blocked:
+    description: >-
+      Whether a `blocked` verdict fails the step. Turn it off to observe verdicts
+      before letting them gate anything, which is the honest way to adopt a gate.
+    required: false
+    default: "true"
+  exclude:
+    description: >-
+      Regular expression matching check-run names that are not evidence about
+      this revision. It must match the job running this action: that job is a
+      check run too, it is still in progress while it collects, and waiting for
+      itself would stall until the retry budget ran out. Repository-posture
+      scans belong here as well.
+    required: false
+    default: ^(gitlocus|gate|arm|Scorecard|analyze)
+
+outputs:
+  decision:
+    description: blocked, needs_human, or satisfied.
+    value: ${{ steps.evaluate.outputs.decision }}
+  verdict:
+    description: Path to the verdict as JSON.
+    value: ${{ steps.evaluate.outputs.verdict }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install locus
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        # Verified before it is executed, not after. A provenance tool that ran
+        # an unverified binary would refute itself, and the bundle is published
+        # with the release so this needs no call to the attestation API.
+        mkdir -p "$RUNNER_TEMP/gitlocus"
+        cd "$RUNNER_TEMP/gitlocus"
+        gh release download "$VERSION" \
+          --repo hey-vera/gitlocus \
+          --pattern 'locus-x86_64-unknown-linux-gnu' \
+          --pattern 'locus.intoto.jsonl' \
+          --clobber
+        if [ -f locus.intoto.jsonl ]; then
+          gh attestation verify locus-x86_64-unknown-linux-gnu \
+            --bundle locus.intoto.jsonl --repo hey-vera/gitlocus
+        else
+          # Releases before v0.0.3 carry no bundle. Fall back to the API rather
+          # than skipping verification, and say which path was taken.
+          echo "no bundle in $VERSION; verifying against the attestation API"
+          gh attestation verify locus-x86_64-unknown-linux-gnu --repo hey-vera/gitlocus
+        fi
+        chmod +x locus-x86_64-unknown-linux-gnu
+        echo "$RUNNER_TEMP/gitlocus" >> "$GITHUB_PATH"
+        mv locus-x86_64-unknown-linux-gnu locus
+        ./locus --version
+
+    - name: Describe the contribution
+      shell: bash
+      env:
+        # Passed through env rather than interpolated: a branch name or a login
+        # is attacker-controlled text and must never reach a script body.
+        GH_TOKEN: ${{ inputs.token }}
+        REPO: ${{ github.repository }}
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        AUTHOR: ${{ github.event.pull_request.user.login }}
+        ASSOCIATION: ${{ github.event.pull_request.author_association }}
+        CONTRIBUTOR_AFTER: ${{ inputs.contributor-after }}
+        VOUCHED_FILE: ${{ inputs.vouched-file }}
+        WORK: ${{ runner.temp }}/gitlocus
+      run: |
+        set -euo pipefail
+
+        # The repository permission is authoritative and does not depend on
+        # profile visibility. author_association reports only *publicly visible*
+        # association, so a maintainer with private org membership arrives as
+        # CONTRIBUTOR — it fails in the safe direction, which is exactly why it
+        # is easy to miss. A fork's read-only token cannot read the permission,
+        # so the association remains the fallback and the source is logged
+        # either way.
+        PERMISSION=$(gh api "repos/$REPO/collaborators/$AUTHOR/permission" \
+          --jq '.permission' 2>/dev/null || true)
+
+        case "$PERMISSION" in
+          admin|maintain) TIER=maintainer; SOURCE="repository permission $PERMISSION" ;;
+          write)          TIER=contributor; SOURCE="repository permission write" ;;
+          read|none)      TIER=unknown; SOURCE="repository permission $PERMISSION" ;;
+          *)
+            SOURCE="public association $ASSOCIATION (permission unreadable)"
+            case "$ASSOCIATION" in
+              OWNER|MEMBER|COLLABORATOR) TIER=maintainer ;;
+              CONTRIBUTOR)               TIER=contributor ;;
+              *)                         TIER=unknown ;;
+            esac
+            ;;
+        esac
+
+        # Promotion from merged history. Attribution comes from the forge, which
+        # authenticated the account, and never from the git author field — that
+        # is free text anyone can set, so trust derived from it is trust anyone
+        # can mint. Nothing is stored: the count is recomputed every run.
+        if [ "$TIER" = "unknown" ]; then
+          MERGED=$(gh api -X GET search/issues \
+            -f q="repo:$REPO is:pr is:merged author:$AUTHOR" \
+            --jq '.total_count' 2>/dev/null || echo 0)
+          if [ "${MERGED:-0}" -ge "$CONTRIBUTOR_AFTER" ]; then
+            TIER=contributor
+            SOURCE="$MERGED merged pull request(s)"
+          fi
+        fi
+        echo "actor $AUTHOR at tier $TIER, from $SOURCE"
+
+        VOUCH_ARGS=""
+        if [ -n "$VOUCHED_FILE" ] && [ -f "$VOUCHED_FILE" ]; then
+          VOUCH_ARGS="--vouched-file $VOUCHED_FILE --platform github"
+          echo "consulting $VOUCHED_FILE"
+        fi
+
+        locus contribution \
+          --base "$BASE_SHA" \
+          --head "$HEAD_SHA" \
+          --repository "github.com/$REPO" \
+          --actor "$AUTHOR" \
+          --tier "$TIER" \
+          --key-binding "https://token.actions.githubusercontent.com" \
+          $VOUCH_ARGS \
+          > "$WORK/contribution.json"
+        cat "$WORK/contribution.json"
+
+    - name: Read the policy that governs this contribution
+      shell: bash
+      env:
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        POLICY: ${{ inputs.policy }}
+        WORK: ${{ runner.temp }}/gitlocus
+      run: |
+        set -euo pipefail
+        # A contribution is governed by the policy in force when it was proposed,
+        # not only by the one it ships. Without this, a pull request that deletes
+        # a rule is judged by a document that no longer contains it.
+        #
+        # Absence is legitimate — the change that first adds a policy has none to
+        # be governed by — and is kept apart from a read failure, which set -e
+        # turns into a blocked gate rather than a silent fallback.
+        if git cat-file -e "$BASE_SHA:$POLICY" 2>/dev/null; then
+          git show "$BASE_SHA:$POLICY" > "$WORK/base-policy.yml"
+          echo "governed also by the policy at $BASE_SHA"
+        else
+          echo "no policy at $BASE_SHA; this contribution introduces one"
+        fi
+
+    - name: Collect evidence from check runs
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        REPO: ${{ github.repository }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        WORK: ${{ runner.temp }}/gitlocus
+        ACTION_PATH: ${{ github.action_path }}
+        GITLOCUS_EXCLUDE: ${{ inputs.exclude }}
+      run: |
+        set -euo pipefail
+        # Evidence comes from the forge's own check runs rather than from this
+        # job's needs list, so a requirement satisfied by a different workflow is
+        # still seen. A gate that could only observe its own workflow would
+        # report a verdict on part of the evidence and present it as the whole.
+        cd "$WORK"
+        for attempt in $(seq 1 20); do
+          gh api "repos/$REPO/commits/$HEAD_SHA/check-runs" --paginate --jq '.check_runs' > raw.json
+          python3 "$ACTION_PATH/scripts/flatten_checks.py"
+          if python3 "$ACTION_PATH/scripts/collect_evidence.py" --pending-only; then
+            break
+          fi
+          echo "waiting for checks to finish (attempt $attempt)"
+          sleep 15
+        done
+        python3 "$ACTION_PATH/scripts/collect_evidence.py"
+
+    - name: Evaluate
+      id: evaluate
+      shell: bash
+      env:
+        POLICY: ${{ inputs.policy }}
+        FAIL_ON_BLOCKED: ${{ inputs.fail-on-blocked }}
+        WORK: ${{ runner.temp }}/gitlocus
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        set -uo pipefail
+        ARGS="--policy $POLICY --contribution $WORK/contribution.json --evidence $WORK/evidence.json"
+        if [ -f "$WORK/base-policy.yml" ]; then
+          ARGS="$ARGS --governing-policy $WORK/base-policy.yml"
+        fi
+
+        # A non-zero exit here is the CLI correctly reporting "not mergeable
+        # yet", which is not a failure of this step. The decision below decides.
+        locus verify $ARGS | tee "$WORK/verdict.txt" || true
+        locus verify $ARGS --format json > "$WORK/verdict.json" || true
+
+        DECISION=$(python3 -c "import json;print(json.load(open('$WORK/verdict.json'))['decision'])")
+        echo "decision=$DECISION" >> "$GITHUB_OUTPUT"
+        echo "verdict=$WORK/verdict.json" >> "$GITHUB_OUTPUT"
+        # The summary script reads verdict.txt from the working directory, so it
+        # runs where that file is rather than where the policy is.
+        (cd "$WORK" && python3 "$ACTION_PATH/scripts/render_summary.py" "$DECISION") \
+          >> "$GITHUB_STEP_SUMMARY"
+
+        if [ "$DECISION" = "blocked" ] && [ "$FAIL_ON_BLOCKED" = "true" ]; then
+          echo "::error::gate blocked this contribution"
+          exit 1
+        fi
+        echo "gate decision: $DECISION"

@@ -19,10 +19,16 @@ import os
 import re
 import sys
 
-# The gate cannot wait on itself. Auto-merge arming is not a claim about the
-# code. Scorecard and CodeQL report repository posture rather than a verdict on
-# this revision, and the policy does not require them.
-EXCLUDED = re.compile(r"^(gate|arm|Scorecard|analyze)")
+# The gate cannot wait on itself: it is a check run too, it is still in progress
+# while it collects, and waiting for it to complete would deadlock until the
+# retry budget ran out. Auto-merge arming is not a claim about the code, and
+# Scorecard and CodeQL report repository posture rather than a verdict on this
+# revision.
+#
+# Read from the environment because an adopting repository names its jobs
+# whatever it likes, and the one thing that must always be excluded — the job
+# running this collector — is a name only the caller knows.
+EXCLUDED = re.compile(os.environ.get("GITLOCUS_EXCLUDE") or r"^(gate|arm|Scorecard|analyze)")
 
 # Only two conclusions mean the check actually ran and was satisfied.
 PASSING = {"success", "neutral"}
