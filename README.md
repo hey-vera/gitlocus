@@ -17,11 +17,19 @@ function of the two — reproducible by anyone, on any host, offline.
 It runs on top of the forge you use today. It is the kernel of a git platform,
 and that is where it is going.
 
-> **Status: v0.0.2, pre-release.** The spec is a draft and will break before v1.
-> The gate works and runs on this repository's own pull requests. Binaries carry
-> signed build provenance. Signature *verification* is implemented; the signing
-> *producer* is not, so a `signed_by` rule currently refuses everything — which is
-> why this repository does not yet use one.
+> **Status: v0.0.3, pre-release.** The spec is a draft and will break before v1.
+> The gate runs on this repository's own pull requests, and a contribution cannot
+> influence how it is judged: the policy and the evaluator both come from the base
+> revision. Binaries carry signed build provenance and the bundle to verify it
+> offline.
+>
+> **Not yet done, stated rather than implied.** Signature *verification* is
+> implemented; the signing *producer* is not, so a `signed_by` rule currently
+> refuses everything and this repository does not use one
+> ([#8](https://github.com/hey-vera/gitlocus/issues/8)). Authorship declarations
+> are per-contribution, which is too coarse to be more than a starting point
+> ([#15](https://github.com/hey-vera/gitlocus/issues/15)). No model reviewer is
+> wired up, so the assessed class is carried but unpopulated.
 
 ---
 
