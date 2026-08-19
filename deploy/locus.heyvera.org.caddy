@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+#
+# Site block for locus.heyvera.org. Append to /etc/caddy/Caddyfile once the DNS
+# record exists — Caddy will request a certificate on first load, and adding it
+# before the name resolves only produces ACME failures in the log.
+#
+#   sudo cp /home/guardian/Caddyfile /etc/caddy/Caddyfile && sudo systemctl reload caddy
+#
+# Static console and API on one origin, so the page needs no CORS grant and the
+# service needs no opinion about who is allowed to call it.
+locus.heyvera.org {
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		# The console loads no third-party anything. Saying so means a future
+		# change that wants to has to change this line first.
+		Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+	}
+
+	# locusd binds loopback only; nothing reaches it except this proxy.
+	handle /v0/* {
+		reverse_proxy localhost:8788
+	}
+	handle /healthz {
+		reverse_proxy localhost:8788
+	}
+
+	handle {
+		root * /var/www/locus
+		file_server
+	}
+}
