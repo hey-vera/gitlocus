@@ -1,5 +1,5 @@
 [package]
-name = "locus-cli"
+name = "gitlocus-cli"
 description = "GitLocus command line tool: evaluate contributions against a repository's own policy."
 version.workspace = true
 edition.workspace = true
@@ -15,7 +15,7 @@ path = "src/main.rs"
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true
-locus-core = { path = "../locus-core", version = "0.0.1" }
+gitlocus-core = { path = "../gitlocus-core", version = "0.0.1" }
 serde.workspace = true
 serde_json.workspace = true
 

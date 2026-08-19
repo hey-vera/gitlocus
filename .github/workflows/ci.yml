@@ -116,7 +116,7 @@ jobs:
         run: python3 scripts/check_schemas.py
 
       - name: This repository's own policy compiles
-        run: cargo run --locked -p locus-cli -- policy check --policy .gitlocus/policy.yml
+        run: cargo run --locked -p gitlocus-cli -- policy check --policy .gitlocus/policy.yml
 
   # The gate: this project evaluated by this project. A policy engine whose
   # authors exempt themselves demonstrates nothing.
@@ -150,7 +150,7 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
       - name: Build the gate
-        run: cargo build --release --locked -p locus-cli
+        run: cargo build --release --locked -p gitlocus-cli
 
       - name: Describe the contribution
         env:

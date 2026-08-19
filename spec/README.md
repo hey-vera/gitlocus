@@ -239,7 +239,7 @@ An implementation is conformant if it:
 8. rejects unsigned evidence against a `signed_by` requirement;
 9. rejects evidence signed by an identity no constraint accepts.
 
-The reference implementation lives in [`crates/locus-core`](../crates/locus-core);
+The reference implementation lives in [`crates/gitlocus-core`](../crates/gitlocus-core);
 the test suite there is the executable form of this section.
 
 ## 7. Schemas

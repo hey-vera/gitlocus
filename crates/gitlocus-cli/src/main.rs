@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //! `locus` — evaluate a contribution against a repository's own policy.
 //!
-//! The same evaluation runs here and in CI, out of the same `locus-core` crate,
+//! The same evaluation runs here and in CI, out of the same `gitlocus-core` crate,
 //! so a contributor can find out locally exactly what the gate will say. If these
 //! two ever disagree, that is a bug in this project and not a quirk of CI.
 
@@ -9,7 +9,7 @@ mod git;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
-use locus_core::{
+use gitlocus_core::{
     Actor, ActorKind, Contribution, Evidence, EvidenceClass, Outcome, Policy, TrustTier, VouchList,
     VouchStatus,
 };
@@ -389,7 +389,7 @@ fn check_vouch(action: VouchAction) -> Result<ExitCode> {
 
     let list = VouchList::parse(&read(&file)?);
     let status = list.status(&platform, &user);
-    let tier = locus_core::vouch::tier_for(status);
+    let tier = gitlocus_core::vouch::tier_for(status);
 
     let label = match status {
         VouchStatus::Vouched => "vouched",
@@ -492,7 +492,7 @@ fn emit_evidence(action: EvidenceAction) -> Result<ExitCode> {
     Ok(ExitCode::SUCCESS)
 }
 
-fn load_policy(path: &Path) -> Result<locus_core::policy::CompiledPolicy> {
+fn load_policy(path: &Path) -> Result<gitlocus_core::policy::CompiledPolicy> {
     let src = read(path)?;
     Policy::from_yaml(&src)
         .with_context(|| format!("parsing policy at {}", path.display()))?

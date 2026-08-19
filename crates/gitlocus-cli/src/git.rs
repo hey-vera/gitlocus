@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //! Reading the facts a contribution is built from out of a git repository.
 //!
-//! This lives in the CLI rather than in `locus-core` on purpose: the core is a
+//! This lives in the CLI rather than in `gitlocus-core` on purpose: the core is a
 //! pure function of its inputs, and anything that touches a filesystem, a clock
 //! or a subprocess would make its determinism untestable. See
 //! `docs/adr/0004-rust-core-shared-by-cli-and-server.md`.

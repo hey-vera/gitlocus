@@ -24,9 +24,21 @@ import sys
 # this revision, and the policy does not require them.
 EXCLUDED = re.compile(r"^(gate|arm|Scorecard|analyze)")
 
-# A conclusion the forge treats as non-failing. Anything else is a failure;
-# a check that never completed is inconclusive, which the model treats as unmet.
-PASSING = {"success", "neutral", "skipped"}
+# Only two conclusions mean the check actually ran and was satisfied.
+PASSING = {"success", "neutral"}
+
+# Only one means it ran and was not.
+FAILING = {"failure"}
+
+# Everything else — skipped, cancelled, stale, timed_out, action_required —
+# means no answer was reached. That is `inconclusive`, which the model treats as
+# unmet, and it must never be read as a pass.
+#
+# `skipped` was previously in PASSING. It was harmless only because nothing in
+# this repository is ever skipped, and it would have failed silently for the
+# first adopter with a conditional job: a check that did not run would have
+# satisfied the requirement it was meant to prove. That is invariant 3 in
+# AGENTS.md, violated in the product rather than in the configuration.
 
 
 def relevant(runs):
@@ -63,12 +75,15 @@ def main():
 
     evidence = []
     for run in relevant(runs):
+        conclusion = run.get("conclusion") or ""
         if run["status"] != "completed":
             outcome = "inconclusive"
-        elif (run.get("conclusion") or "") in PASSING:
+        elif conclusion in PASSING:
             outcome = "pass"
-        else:
+        elif conclusion in FAILING:
             outcome = "fail"
+        else:
+            outcome = "inconclusive"
 
         record = {
             "kind": run["name"],

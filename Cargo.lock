@@ -279,6 +279,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitlocus-cli"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "clap",
+ "gitlocus-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "gitlocus-core"
+version = "0.0.1"
+dependencies = [
+ "globset",
+ "jsonschema",
+ "serde",
+ "serde_json",
+ "serde_norway",
+]
+
+[[package]]
 name = "globset"
 version = "0.4.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -521,28 +543,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "224399e74b87b5f3557511d98dff8b14089b3dadafcab6bb93eab67d3aace965"
 dependencies = [
  "scopeguard",
-]
-
-[[package]]
-name = "locus-cli"
-version = "0.0.1"
-dependencies = [
- "anyhow",
- "clap",
- "locus-core",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "locus-core"
-version = "0.0.1"
-dependencies = [
- "globset",
- "jsonschema",
- "serde",
- "serde_json",
- "serde_norway",
 ]
 
 [[package]]

@@ -69,7 +69,7 @@ asserting anything about yourself.
 
 **It is forge-dependent, and that is a real cost.** Merged history is attributed
 by whatever hosts the repository, so the derivation lives in the forge
-integration rather than in `locus-core`. That is consistent with
+integration rather than in `gitlocus-core`. That is consistent with
 [ADR 0004](0004-rust-core-shared-by-cli-and-server.md) — the core stays pure and
 takes a tier as input — but it means each forge needs its own derivation, and a
 mailed patch series has none.

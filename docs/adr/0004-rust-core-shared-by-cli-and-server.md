@@ -20,7 +20,7 @@ crypto-adjacent process, which is what Rust is good at.
 
 ## Decision
 
-**One core crate, `locus-core`**, containing the model and the evaluator. The CLI
+**One core crate, `gitlocus-core`**, containing the model and the evaluator. The CLI
 depends on it. The future server will depend on the same crate at the same
 version. There is exactly one implementation of `evaluate`.
 
@@ -51,7 +51,7 @@ otherwise be natural contributors.
 
 **Constraint.** The core must stay free of I/O. Evaluation is a pure function;
 anything that reads a file, a clock or a socket belongs in the CLI or the server,
-never in `locus-core`. This is what keeps determinism testable.
+never in `gitlocus-core`. This is what keeps determinism testable.
 
 ## Alternatives rejected
 
