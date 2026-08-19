@@ -19,6 +19,10 @@ on:
 permissions:
   contents: read  # Read-only by default; the job elevates for itself.
 
+concurrency:
+  group: label-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   label:
     name: label
