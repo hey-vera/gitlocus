@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+#
+# A *user* service, not a system one. guardian has lingering enabled, so this
+# starts at boot and survives logout without needing root at all — which is the
+# whole reason locusd could be deployed without a password.
+#
+#   install -Dm0644 deploy/locusd.service ~/.config/systemd/user/locusd.service
+#   systemctl --user daemon-reload && systemctl --user enable --now locusd
+#
+[Unit]
+Description=GitLocus evaluation service
+Documentation=https://github.com/hey-vera/gitlocus
+After=network-online.target
+
+[Service]
+# Loopback only. Nothing reaches this except the reverse proxy on the same host,
+# so the service does not need to defend a public interface it never has.
+Environment=LOCUSD_ADDR=127.0.0.1:8788
+ExecStart=%h/bin/locusd
+Restart=on-failure
+RestartSec=2
+
+# It reads nothing, writes nothing and calls nothing. Say so, so a future
+# change that needs more has to ask for it explicitly.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6
+MemoryMax=256M
+TasksMax=64
+
+[Install]
+WantedBy=default.target

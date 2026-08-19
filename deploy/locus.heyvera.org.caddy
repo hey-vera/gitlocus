@@ -1,10 +1,32 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 #
-# Site block for locus.heyvera.org. Append to /etc/caddy/Caddyfile once the DNS
-# record exists — Caddy will request a certificate on first load, and adding it
-# before the name resolves only produces ACME failures in the log.
+# Site block for locus.heyvera.org on clawguard (24.199.121.137).
 #
-#   sudo cp /home/guardian/Caddyfile /etc/caddy/Caddyfile && sudo systemctl reload caddy
+# Two things need root once, and only once. Everything after that is deployable
+# without a password, because guardian already has NOPASSWD for writing the
+# Caddyfile and reloading Caddy.
+#
+#   1. DNS: locus.heyvera.org -> 24.199.121.137, proxied through Cloudflare.
+#      Caddy requests a certificate on first load, so adding this block before
+#      the name resolves only produces ACME failures in a log shared with
+#      another service on this host. Do the DNS first.
+#
+#   2. A web root Caddy can actually read. /home/guardian is 0750 and Caddy runs
+#      as the caddy user, so it cannot traverse into a home directory:
+#
+#        sudo mkdir -p /var/www/locus && sudo chown guardian:guardian /var/www/locus
+#
+#      This matches how /var/www/claw-net is already owned, and it means later
+#      deploys are a plain copy.
+#
+# Then, without root:
+#
+#   install -m 0644 ~/gitlocus/web/index.html /var/www/locus/index.html
+#   cat /etc/caddy/Caddyfile deploy/locus.heyvera.org.caddy > ~/Caddyfile
+#   sudo cp ~/Caddyfile /etc/caddy/Caddyfile && sudo systemctl reload caddy
+#
+# Caddy validates before applying, so a bad block leaves the running config in
+# place rather than taking the host down.
 #
 # Static console and API on one origin, so the page needs no CORS grant and the
 # service needs no opinion about who is allowed to call it.
