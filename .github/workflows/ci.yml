@@ -153,8 +153,29 @@ jobs:
           toolchain: stable
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
-      - name: Build the gate
-        run: cargo build --release --locked -p gitlocus-cli
+      - name: Build the gate from the base revision
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          # Build into the cached workspace target directory rather than the
+          # worktree's own, or rust-cache never sees these artifacts and every
+          # pull request pays for a cold release build.
+          CARGO_TARGET_DIR: ${{ github.workspace }}/target
+        run: |
+          set -euo pipefail
+          # The gate must not be compiled from the contribution it judges. A
+          # change to crates/gitlocus-core/src/policy.rs changes the evaluator
+          # that then decides whether that change may merge — ADR 0006's
+          # principle one level down, and a more direct lever than any path the
+          # policy protects.
+          #
+          # The cost is real and is stated in ADR 0014: the base binary does not
+          # know flags a pull request invents, so a change to this CLI needs two
+          # pull requests, one adding the flag and one using it.
+          git worktree add --detach ../gate-base "$BASE_SHA"
+          cargo build --release --locked -p gitlocus-cli \
+            --manifest-path ../gate-base/Cargo.toml
+          cp "$CARGO_TARGET_DIR/release/locus" ./locus-gate
+          echo "gate built from $BASE_SHA: $(./locus-gate --version)"
 
       - name: Describe the contribution
         env:
@@ -223,7 +244,7 @@ jobs:
           # Built by the shipped command rather than by a script that only exists
           # here: anything this repository needs in order to adopt GitLocus, an
           # outside repository needs too.
-          ./target/release/locus contribution \
+          ./locus-gate contribution \
             --base "$BASE_SHA" \
             --head "$HEAD_SHA" \
             --repository "github.com/$REPO" \
@@ -276,7 +297,7 @@ jobs:
       - name: Evaluate
         run: |
           set -uo pipefail
-          LOCUS=./target/release/locus
+          LOCUS=./locus-gate
           ARGS="--policy .gitlocus/policy.yml --contribution contribution.json --evidence evidence.json"
           if [ -f base-policy.yml ]; then
             ARGS="$ARGS --governing-policy base-policy.yml"
