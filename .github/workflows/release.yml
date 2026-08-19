@@ -148,9 +148,31 @@ jobs:
           cd dist && sha256sum * > SHA256SUMS && cat SHA256SUMS
 
       - name: Attest build provenance
+        id: attest
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: dist/locus-*
+
+      # Without the bundle attached, verifying a download means asking GitHub's
+      # attestation API about an artifact GitHub also hosts — which is a weaker
+      # property than it looks, and unavailable on a network that cannot reach
+      # it. Shipping the bundle makes verification offline and independent.
+      - name: Attach the attestation bundle
+        env:
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          if [ ! -s "$BUNDLE" ]; then
+            echo "::error::the attest step produced no bundle at $BUNDLE"
+            exit 1
+          fi
+          cp "$BUNDLE" dist/locus.intoto.jsonl
+          # SHA256SUMS was written before the bundle existed. Rewrite it over
+          # exactly what is about to be published, naming the files rather than
+          # globbing, so the checksum file can never cover itself.
+          cd dist
+          sha256sum locus-* locus.intoto.jsonl > SHA256SUMS
+          cat SHA256SUMS
 
       - name: Publish release
         env:
@@ -165,8 +187,12 @@ jobs:
             --generate-notes \
             --verify-tag
           {
-            echo "Verify a download with:"
+            echo "Verify a download against the attestation API:"
             echo '```'
             echo "gh attestation verify locus-<target> --repo $REPO"
+            echo '```'
+            echo "Or offline, against the bundle published with the release:"
+            echo '```'
+            echo "gh attestation verify locus-<target> --bundle locus.intoto.jsonl --repo $REPO"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"

@@ -130,8 +130,18 @@ Release binaries carry a signed SLSA build provenance attestation:
 gh attestation verify locus-x86_64-unknown-linux-gnu --repo hey-vera/gitlocus
 ```
 
+That asks GitHub's attestation API about an artifact GitHub also hosts. The
+bundle is published alongside the binaries, so you can check the same signature
+**offline**, or on a network that cannot reach the API at all:
+
+```bash
+gh attestation verify locus-x86_64-unknown-linux-gnu \
+  --bundle locus.intoto.jsonl --repo hey-vera/gitlocus
+```
+
 That is the point of shipping them this way: a provenance tool distributing
-unattested binaries would refute itself.
+unattested binaries would refute itself, and one whose verification depends on a
+single party is making a weaker claim than it appears to.
 
 ## How this repository is built
 
