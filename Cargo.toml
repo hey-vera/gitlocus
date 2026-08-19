@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/gitlocus-core", "crates/gitlocus-cli", "crates/locusd"]
+members = ["crates/gitlocus-core", "crates/gitlocus-cli", "crates/locusd", "crates/repo-conformance"]
 
 [workspace.package]
 version = "0.0.3"
