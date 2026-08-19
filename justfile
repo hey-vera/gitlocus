@@ -281,8 +281,8 @@ brief:
 
     echo
     echo "== latest release =="
-    gh release view --repo "$repo" --json tagName,publishedAt,isLatest \
-      --jq '"\(.tagName)  \(.publishedAt)  latest:\(.isLatest)"'
+    gh release view --repo "$repo" --json tagName,publishedAt,isImmutable \
+      --jq '"\(.tagName)  \(.publishedAt)  immutable:\(.isImmutable)"'
 
     echo
     echo "== last five merges =="
@@ -292,6 +292,38 @@ brief:
     echo "== live service =="
     curl -fsS https://locus.heyvera.org/healthz || echo "unreachable"
     echo
+
+    echo
+    echo "== settings LEARNINGS.md depends on =="
+    # Three rows of that table are about GitHub settings rather than code, so no
+    # test in the tree can guard them. This is where they are guarded instead.
+    # It needs a token, which is why it is not a required check.
+    settings_fail=0
+
+    if [ "$(gh api "repos/$repo/immutable-releases" --jq '.enabled')" = "true" ]; then
+      echo "  immutable releases: enabled"
+    else
+      echo "::error::immutable releases are off - LEARNINGS.md says they are on"
+      settings_fail=1
+    fi
+
+    bypass=$(gh api "repos/$repo/rulesets" --jq '.[] | select(.name=="main") | .id' \
+      | while read -r id; do gh api "repos/$repo/rulesets/$id" --jq '.bypass_actors | length'; done)
+    if [ "${bypass:-1}" = "0" ]; then
+      echo "  main ruleset bypass actors: none"
+    else
+      echo "::error::the main ruleset has $bypass bypass actor(s); every merge before 2026-08-19 logged result=bypass because of exactly this"
+      settings_fail=1
+    fi
+
+    signatures=$(gh api "repos/$repo/rulesets" --jq '.[] | select(.name=="main") | .id' \
+      | while read -r id; do gh api "repos/$repo/rulesets/$id" --jq '[.rules[].type] | index("required_signatures") // "no"'; done)
+    if [ "$signatures" != "no" ]; then
+      echo "  required signatures: on"
+    else
+      echo "::error::the main ruleset no longer requires signed commits"
+      settings_fail=1
+    fi
 
     echo
     echo "== required checks: ruleset vs .github/required-checks.txt =="
@@ -311,5 +343,6 @@ brief:
       echo "required-checks.txt matches the ruleset"
     else
       echo "::error::required-checks.txt has drifted from the main ruleset"
-      exit 1
+      settings_fail=1
     fi
+    exit "$settings_fail"
