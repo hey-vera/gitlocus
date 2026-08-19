@@ -59,34 +59,12 @@ jobs:
 
       # zizmor covers a great deal but does not assert the two rules this
       # project treats as absolute, so they are checked directly.
-      - name: Structural rules
-        run: |
-          set -euo pipefail
-          fail=0
-
-          # The pull-request-target trigger runs with a writable token in the
-          # context of the base repository. In a repository whose whole purpose
-          # is evaluating untrusted contributions, it is banned outright.
-          #
-          # Matched as a YAML key at the start of a line, so that this check does
-          # not trip over its own error message.
-          if grep -rnE '^[[:space:]]*(-[[:space:]]*)?pull_request_target[[:space:]]*:' .github/workflows/; then
-            echo "::error::the pull-request-target trigger is banned in this repository"
-            fail=1
-          fi
-
-          # Every action reference must be a full 40-character commit SHA. A tag
-          # is mutable and a mutable dependency in CI is a supply-chain hole.
-          while IFS= read -r line; do
-            ref="${line##*@}"
-            if ! printf '%s' "$ref" | grep -Eq '^[0-9a-f]{40}$'; then
-              echo "::error::unpinned action reference: $line"
-              fail=1
-            fi
-          done < <(grep -rhoE '^\s*-?\s*uses:\s*\S+' .github/workflows/ | sed -E 's/.*uses:\s*//')
-
-          [ "$fail" -eq 0 ] && echo "workflow structure ok"
-          exit "$fail"
+      - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2.86.3
+        with:
+          tool: just
+      # The two rules this project treats as absolute, which zizmor does not
+      # assert: the pull-request-target ban, and full-SHA action pinning.
+      - run: just structural-rules
 
   deny:
     name: cargo-deny
@@ -99,7 +77,10 @@ jobs:
       - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2.86.3
         with:
           tool: cargo-deny
-      - run: cargo deny --all-features check
+      - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2.86.3
+        with:
+          tool: just
+      - run: just cargo-deny
 
   dco:
     name: dco
@@ -115,26 +96,16 @@ jobs:
       # The sign-off is this project's accountability mechanism: it is the
       # statement that a named human will answer for the change. Checking it is
       # not paperwork, it is the one thing the model actually requires.
+      - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2.86.3
+        with:
+          tool: just
+      # The sign-off is this project's accountability mechanism: it is the
+      # statement that a named human will answer for the change. Checking it is
+      # not paperwork, it is the one thing the model actually requires.
       - name: Every commit is signed off
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          set -euo pipefail
-          fail=0
-          while IFS= read -r sha; do
-            [ -z "$sha" ] && continue
-            if ! git show -s --format=%B "$sha" | grep -qiE '^Signed-off-by: .+ <.+@.+>'; then
-              subject=$(git show -s --format=%s "$sha")
-              echo "::error::missing Signed-off-by on $sha: $subject"
-              fail=1
-            fi
-          done < <(git rev-list "$BASE_SHA".."$HEAD_SHA")
-          if [ "$fail" -ne 0 ]; then
-            echo "Fix with: git commit --amend -s   (or: git rebase --signoff $BASE_SHA)"
-            exit 1
-          fi
-          echo "all commits signed off"
+        run: just dco "$BASE_SHA"
 
   licence-headers:
     name: licence-headers
@@ -148,19 +119,11 @@ jobs:
       # is Apache-2.0 except for the server, which is AGPL-3.0 (ADR 0016), and a
       # file carrying the wrong identifier fails here instead of being noticed
       # in review, or not.
-      - name: Every source file carries the SPDX identifier its directory requires
-        run: |
-          set -euo pipefail
-          fail=0
-          while IFS= read -r f; do
-            case "$f" in
-              crates/locusd/*) want="AGPL-3.0-only" ;;
-              *)               want="Apache-2.0" ;;
-            esac
-            if ! head -5 "$f" | grep -q "SPDX-License-Identifier: $want"; then
-              echo "::error file=$f::expected SPDX-License-Identifier: $want"
-              fail=1
-            fi
-          done < <(find crates scripts -type f \( -name '*.rs' -o -name '*.py' \))
-          [ "$fail" -eq 0 ] && echo "every source file carries the identifier its directory requires"
-          exit "$fail"
+      - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2.86.3
+        with:
+          tool: just
+      # The licence map is executable rather than documentary. This repository
+      # is Apache-2.0 except for the server, which is AGPL-3.0 (ADR 0016), and a
+      # file carrying the wrong identifier fails here instead of being noticed
+      # in review, or not.
+      - run: just licence-headers

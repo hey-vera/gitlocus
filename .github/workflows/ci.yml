@@ -31,7 +31,6 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: -D warnings
 
 jobs:
   build:
@@ -46,7 +45,10 @@ jobs:
         with:
           toolchain: stable
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - run: cargo build --all-targets --locked
+      - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2.86.3
+        with:
+          tool: just
+      - run: just build
 
   tests:
     name: tests
@@ -60,18 +62,16 @@ jobs:
         with:
           toolchain: stable
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      # Includes the conformance suite, which validates this crate's own
-      # serialisation against the published schemas in spec/schemas.
-      - run: cargo test --all-targets --locked
-      # --all-targets skips doctests; the model's documentation carries examples
-      # worth keeping honest.
-      - run: cargo test --doc --locked
-      # The evidence collector decides what the gate is allowed to believe, so
-      # its edge cases are security-relevant. Two of the cases it covers are
-      # bugs this project shipped: `skipped` counted as a pass, and a check
-      # reporting a conclusion while still marked in progress counted as
+      - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2.86.3
+        with:
+          tool: just
+      # The recipe runs the workspace tests, the doctests, and the tests for the
+      # evidence collector. The collector decides what the gate is allowed to
+      # believe, so its edge cases are security-relevant: two of the cases it
+      # covers are bugs this project shipped — `skipped` counted as a pass, and
+      # a check reporting a conclusion while still marked in progress counted as
       # inconclusive, which blocked a contribution every check agreed with.
-      - run: python3 scripts/test_collect_evidence.py
+      - run: just tests
 
   lint:
     name: lint
@@ -86,7 +86,10 @@ jobs:
           toolchain: stable
           components: clippy
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - run: cargo clippy --all-targets --locked -- -D warnings
+      - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2.86.3
+        with:
+          tool: just
+      - run: just lint
 
   fmt:
     name: fmt
@@ -100,7 +103,10 @@ jobs:
         with:
           toolchain: stable
           components: rustfmt
-      - run: cargo fmt --all --check
+      - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2.86.3
+        with:
+          tool: just
+      - run: just fmt
 
   # `rust-version` in the workspace manifest is a promise to anyone whose
   # toolchain is older than ours. It was declared and never compiled against,
@@ -119,17 +125,10 @@ jobs:
           persist-credentials: false
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
-      - name: The declared minimum supported Rust version compiles
-        run: |
-          set -euo pipefail
-          MSRV=$(grep -m1 '^rust-version' Cargo.toml | sed 's/.*"\(.*\)"/\1/')
-          if [ -z "$MSRV" ]; then
-            echo "::error::no rust-version in the workspace manifest"
-            exit 1
-          fi
-          echo "manifest declares rust-version = $MSRV"
-          rustup toolchain install "$MSRV" --profile minimal --no-self-update
-          cargo "+$MSRV" build --locked --all-targets
+      - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2.86.3
+        with:
+          tool: just
+      - run: just msrv
 
   # Three targets are released and, until now, one was tested. That gap already
   # cost a release: v0.0.1's Windows build broke because a step ran under
@@ -165,9 +164,12 @@ jobs:
           toolchain: stable
           targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2.86.3
+        with:
+          tool: just
       # Each runner is native to its target, so the tests actually execute
       # rather than merely linking.
-      - run: cargo test --locked --all-targets
+      - run: just platforms
 
   # A matrix produces one check per leg, and a requirement name has to be
   # stable — .gitlocus/policy.yml names checks, and "platform (aarch64-apple-
@@ -204,14 +206,13 @@ jobs:
           toolchain: stable
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
-      # Every schema must itself be a valid JSON Schema, and must be
-      # self-contained: a remote $ref would make every consumer's validation
-      # depend on a live domain.
-      - name: Schemas are valid and self-contained
-        run: python3 scripts/check_schemas.py
-
-      - name: This repository's own policy compiles
-        run: cargo run --locked -p gitlocus-cli -- policy check --policy .gitlocus/policy.yml
+      - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2.86.3
+        with:
+          tool: just
+      # The recipe asserts that every schema is a valid JSON Schema and is
+      # self-contained — a remote $ref would make every consumer's validation
+      # depend on a live domain — and then compiles this repository's own policy.
+      - run: just schema-validation
 
   # Do the tests actually constrain the implementation, or do they merely run it?
   #
@@ -228,14 +229,6 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    env:
-      # The workflow-wide `-D warnings` has to come off here. A mutant often
-      # leaves an unused binding behind, and under -D warnings that fails to
-      # compile — cargo-mutants scores it "unviable" rather than running it, so
-      # the strict setting silently shrinks the number of mutants actually
-      # tested. Warnings are still denied by the lint job, which is where they
-      # belong.
-      RUSTFLAGS: ""
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -249,29 +242,13 @@ jobs:
         with:
           tool: cargo-mutants@27.1.0
 
+      - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2.86.3
+        with:
+          tool: just
       - name: Mutants in the changed lines
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: |
-          set -euo pipefail
-          # Two dots, not three, to match how `locus contribution` computes
-          # changed paths: the comparison is between the revisions as they are.
-          git diff "$BASE_SHA" HEAD > pr.diff
-          if [ ! -s pr.diff ]; then
-            echo "no changes to mutate"
-            exit 0
-          fi
-          # A timed-out mutant is timing-dependent and therefore cannot be
-          # deterministic evidence. cargo-mutants exits non-zero for both
-          # surviving mutants and timeouts, and this job fails on either —
-          # stricter than inconclusive, so nothing is laundered into a pass.
-          # --no-shuffle keeps the ordering, and therefore the log, reproducible.
-          #
-          # The whole workspace. This was scoped to gitlocus-core while the CLI
-          # had no behavioural tests and 24 surviving mutants; #34 closed that,
-          # and both crates now report zero survivors, so there is nothing left
-          # to exclude.
-          cargo mutants --in-diff pr.diff --no-shuffle --colors=never
+        run: just mutants "$BASE_SHA"
 
   # The gate: this project evaluated by this project. A policy engine whose
   # authors exempt themselves demonstrates nothing.

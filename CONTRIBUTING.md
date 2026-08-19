@@ -3,15 +3,19 @@
 
 ## The short version
 
-Open a pull request. Sign your commits off with `git commit -s`. Run the four
-checks below before you push. Say what you actually verified.
+Open a pull request. Sign your commits off with `git commit -s`. Run the checks
+before you push. Say what you actually verified.
 
 ```bash
-cargo build --all-targets
-cargo test
-cargo clippy --all-targets -- -D warnings
-cargo fmt --all --check
+just check   # build, tests, lint, fmt
+just ci      # every check a runner can run without a base revision
 ```
+
+Each recipe is named for a required status check and is the same recipe the
+workflow runs, so a green run here means the same thing it means in CI. `just
+--list` shows them all, and
+[`.github/required-checks.txt`](.github/required-checks.txt) records the three
+that cannot run in full outside GitHub, and why.
 
 ## AI-assisted contributions
 

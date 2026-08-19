@@ -1,0 +1,34 @@
+# The required status checks on the `main` ruleset, and how each one is run.
+#
+# Left of `=` is the status-check context, exactly as the ruleset names it.
+# Right of `=` is one of:
+#
+#   just <recipe>   the job runs exactly this recipe, so local and CI cannot
+#                   diverge — the workflow contains no copy of the command
+#   partial: <why>  a recipe of that name exists but the job does more, because
+#                   part of the check needs something only GitHub has
+#   github-only:    no recipe can exist
+#
+# crates/repo-conformance asserts all of that against the workflows and the
+# justfile, offline. `just brief` asserts that this file still matches the live
+# ruleset, which needs a token and so cannot run in CI's pull-request context.
+# Neither half is sufficient alone.
+#
+# Adding a required check means adding it in three places — the ruleset, a
+# workflow job, and here. That is the cost of the guarantee; ADR 0017 states it.
+
+build             = just build
+tests             = just tests
+lint              = just lint
+fmt               = just fmt
+msrv              = just msrv
+platforms         = just platforms
+schema-validation = just schema-validation
+cargo-deny        = just cargo-deny
+licence-headers   = just licence-headers
+dco               = just dco
+mutants           = just mutants
+workflow-audit    = partial: the recipe runs zizmor and the structural rules; the job runs zizmor through its action so findings upload as SARIF
+gate              = partial: the recipe reports what the base revision's policy demands; collecting evidence from check runs, and deriving the actor's tier, exist only on GitHub
+analyze (rust)    = github-only: CodeQL runs on GitHub's analysis infrastructure
+analyze (actions) = github-only: CodeQL runs on GitHub's analysis infrastructure
