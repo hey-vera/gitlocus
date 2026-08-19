@@ -1,0 +1,299 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: AGPL-3.0-only -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GitLocus — the merge decision</title>
+<meta name="description" content="Evaluate a contribution against a policy and see the verdict, with the evidence attached.">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fbfbfa; --panel: #fff; --ink: #16161a; --muted: #6b6b76;
+    --line: #e4e4e8; --accent: #5b3df5; --accent-ink: #fff;
+    --ok: #0d7a4a; --warn: #8a5a00; --bad: #b3261e;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #101014; --panel: #17171c; --ink: #ececf1; --muted: #9a9aa8;
+      --line: #2a2a33; --accent: #9d8bff; --accent-ink: #16161a;
+      --ok: #4ade80; --warn: #fbbf24; --bad: #f87171;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  header { border-bottom: 1px solid var(--line); padding: 1.5rem 1.25rem; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 1.25rem; margin: 0 0 .25rem; letter-spacing: -.01em; }
+  h1 span { color: var(--muted); font-weight: 400; }
+  header p { margin: 0; color: var(--muted); max-width: 62ch; }
+  main { padding: 1.25rem; }
+  .grid { display: grid; gap: 1rem; grid-template-columns: 1fr; }
+  @media (min-width: 940px) { .grid { grid-template-columns: 1fr 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 1rem; }
+  .panel h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 .5rem; }
+  .panel p.hint { margin: 0 0 .6rem; color: var(--muted); font-size: .85rem; }
+  textarea {
+    width: 100%; min-height: 190px; resize: vertical; padding: .7rem;
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.5;
+    background: var(--bg); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 7px;
+  }
+  textarea:focus, button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .bar { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; margin: 1rem 0; }
+  button {
+    font: inherit; font-weight: 600; cursor: pointer; border-radius: 7px;
+    border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink);
+    padding: .5rem 1.1rem;
+  }
+  button.ghost { background: transparent; color: var(--ink); border-color: var(--line); font-weight: 500; }
+  button[disabled] { opacity: .55; cursor: progress; }
+  select { font: inherit; padding: .45rem .5rem; border-radius: 7px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+  .verdict { display: none; }
+  .verdict.shown { display: block; }
+  .decision { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; margin-bottom: .8rem; }
+  .badge { font-weight: 700; font-size: 1.05rem; letter-spacing: -.01em; }
+  .badge.satisfied { color: var(--ok); }
+  .badge.needs_human { color: var(--warn); }
+  .badge.blocked { color: var(--bad); }
+  .decision .why { color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  th, td { text-align: left; padding: .35rem .5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; }
+  td.name { font-family: var(--mono); font-size: 12.5px; }
+  .meter { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; max-width: 180px; }
+  .meter i { display: block; height: 100%; background: var(--accent); }
+  .note { color: var(--muted); font-size: .85rem; margin: .8rem 0 0; }
+  .err { color: var(--bad); font-family: var(--mono); font-size: 12.5px; white-space: pre-wrap; }
+  footer { border-top: 1px solid var(--line); margin-top: 2rem; padding: 1.25rem; color: var(--muted); font-size: .85rem; }
+  a { color: var(--accent); }
+  code { font-family: var(--mono); font-size: .9em; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>GitLocus <span>— the merge decision</span></h1>
+    <p>
+      A verdict is a pure function of the policy, the contribution and the evidence.
+      Nothing here is stored, and you could compute the same answer offline with the
+      <code>locus</code> CLI. Change anything below and see what it does to the answer.
+    </p>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="bar">
+    <label for="scenario">Scenario</label>
+    <select id="scenario"></select>
+    <button id="run">Evaluate</button>
+    <button id="reset" class="ghost" type="button">Reset scenario</button>
+  </div>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>Policy at the revision under evaluation</h2>
+      <p class="hint">What this change ships. A contributor can edit this.</p>
+      <textarea id="policy" spellcheck="false" aria-label="Policy at the revision under evaluation"></textarea>
+    </section>
+
+    <section class="panel">
+      <h2>Policy at the base revision</h2>
+      <p class="hint">What was in force when the change was proposed. Leave empty only if there genuinely was none.</p>
+      <textarea id="governing" spellcheck="false" aria-label="Policy at the base revision"></textarea>
+    </section>
+
+    <section class="panel">
+      <h2>Contribution</h2>
+      <p class="hint">Identified by content digests, never by a pull-request number.</p>
+      <textarea id="contribution" spellcheck="false" aria-label="Contribution"></textarea>
+    </section>
+
+    <section class="panel">
+      <h2>Evidence</h2>
+      <p class="hint">A <code>signer</code> written here is ignored: a signer is a conclusion a verifier reaches, never a claim a document makes.</p>
+      <textarea id="evidence" spellcheck="false" aria-label="Evidence"></textarea>
+    </section>
+  </div>
+
+  <section class="panel verdict" id="verdict" aria-live="polite">
+    <h2>Verdict</h2>
+    <div id="verdictBody"></div>
+  </section>
+</main>
+
+<footer class="wrap">
+  <a href="https://github.com/hey-vera/gitlocus">Source</a> ·
+  <a href="/v0/openapi.json">API contract</a> ·
+  Apache-2.0, except the server and this page, which are AGPL-3.0.
+</footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+const BASE_POLICY = `version: 0
+rules:
+  - name: baseline
+    when:
+      paths: ["**"]
+    require:
+      deterministic: [build, tests]
+      approvals: 1
+
+  - name: ci-and-policy
+    when:
+      paths: [".github/workflows/**", ".gitlocus/**"]
+    require:
+      deterministic: [build, tests]
+      min_tier: maintainer
+`;
+
+const CONTRIBUTION = (paths, tier = "contributor") => JSON.stringify({
+  repository: "github.com/acme/widgets",
+  base_digest: "aaaa1111",
+  head_digest: "bbbb2222",
+  actor: { id: "someone", kind: "human", tier },
+  changed_paths: paths
+}, null, 2);
+
+const ev = (kind, outcome = "pass") => ({
+  kind, class: "deterministic", outcome,
+  subject_digest: "bbbb2222", produced_by: "github-actions",
+  produced_at: "2026-08-19T00:00:00Z"
+});
+
+const SCENARIOS = {
+  "Everything the policy asks for": {
+    policy: BASE_POLICY, governing: BASE_POLICY,
+    contribution: CONTRIBUTION(["src/main.rs"]),
+    evidence: JSON.stringify([ev("build"), ev("tests"),
+      { kind: "review", class: "attested", outcome: "pass", subject_digest: "bbbb2222",
+        produced_by: "a-maintainer", produced_at: "2026-08-19T00:00:00Z" }], null, 2)
+  },
+  "A model says it is fine": {
+    policy: BASE_POLICY, governing: BASE_POLICY,
+    contribution: CONTRIBUTION(["src/main.rs"]),
+    evidence: JSON.stringify([ev("build"),
+      { kind: "tests", class: "assessed", outcome: "pass", subject_digest: "bbbb2222",
+        produced_by: "a-very-confident-model", produced_at: "2026-08-19T00:00:00Z",
+        summary: "Looks correct to me." }], null, 2)
+  },
+  "Green checks from before a force-push": {
+    policy: BASE_POLICY, governing: BASE_POLICY,
+    contribution: CONTRIBUTION(["src/main.rs"]),
+    evidence: JSON.stringify([
+      { ...ev("build"), subject_digest: "an-older-revision" },
+      { ...ev("tests"), subject_digest: "an-older-revision" }], null, 2)
+  },
+  "Deleting the rule that blocks you": {
+    policy: "version: 0\nrules: []\n", governing: BASE_POLICY,
+    contribution: CONTRIBUTION([".gitlocus/policy.yml"], "unknown"),
+    evidence: "[]"
+  },
+  "Generated code, declared honestly": {
+    policy: BASE_POLICY.replace("      approvals: 1", "      approvals: 1\n      authorship: [human, directed_agent]"),
+    governing: BASE_POLICY.replace("      approvals: 1", "      approvals: 1\n      authorship: [human, directed_agent]"),
+    contribution: CONTRIBUTION(["src/main.rs"]),
+    evidence: JSON.stringify([ev("build"), ev("tests"),
+      { kind: "authorship", class: "attested", outcome: "pass", subject_digest: "bbbb2222",
+        produced_by: "someone", produced_at: "2026-08-19T00:00:00Z",
+        authorship: { claim: "generated" } }], null, 2)
+  },
+  "Saying nothing about authorship": {
+    policy: BASE_POLICY.replace("      approvals: 1", "      approvals: 1\n      authorship: [human, directed_agent]"),
+    governing: BASE_POLICY.replace("      approvals: 1", "      approvals: 1\n      authorship: [human, directed_agent]"),
+    contribution: CONTRIBUTION(["src/main.rs"]),
+    evidence: JSON.stringify([ev("build"), ev("tests")], null, 2)
+  }
+};
+
+const EXPLAIN = {
+  satisfied: "Everything the policy asks for is present.",
+  needs_human: "The machine-checkable half is complete. What is left is a person.",
+  blocked: "Not ready for a human to look at yet — which is the point."
+};
+
+function load(name) {
+  const s = SCENARIOS[name];
+  $("policy").value = s.policy;
+  $("governing").value = s.governing;
+  $("contribution").value = s.contribution;
+  $("evidence").value = s.evidence;
+  $("verdict").classList.remove("shown");
+}
+
+function escape(s) {
+  return String(s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function render(data) {
+  const v = data.verdict;
+  const pct = Math.round(v.rank.confidence * 100);
+  const rows = v.unmet.map((u) =>
+    `<tr><td class="name">${escape(u.requirement)}</td><td>${escape(u.reason)}</td></tr>`).join("");
+  const advisory = (v.advisory || []).map((a) =>
+    `<tr><td class="name">${escape(a)}</td><td>not binding</td></tr>`).join("");
+
+  $("verdictBody").innerHTML = `
+    <div class="decision">
+      <span class="badge ${escape(v.decision)}">${escape(v.decision)}</span>
+      <span class="why">${escape(EXPLAIN[v.decision] || "")}</span>
+    </div>
+    <table>
+      <tr><th>Rules matched</th><td class="name">${v.matched_rules.length ? v.matched_rules.map(escape).join(", ") : "none"}</td></tr>
+      <tr><th>Standing</th><td>${v.tier_satisfied ? "clears" : "does not clear"} <code>${escape(v.tier_required)}</code></td></tr>
+      <tr><th>Approvals</th><td>${v.approvals_present} of ${v.approvals_required}</td></tr>
+      <tr><th>Confidence</th><td><div class="meter"><i style="width:${pct}%"></i></div>${pct}% of required checks satisfied</td></tr>
+      <tr><th>Governed by base</th><td>${data.governed_by_base ? "yes" : "<strong>no</strong> — this contribution is judged only by the policy it ships"}</td></tr>
+    </table>
+    ${rows ? `<h2 style="margin-top:1rem">Unmet</h2><table><tr><th>Requirement</th><th>Why</th></tr>${rows}</table>` : ""}
+    ${advisory ? `<h2 style="margin-top:1rem">Advisory</h2><table><tr><th>Finding</th><th>Weight</th></tr>${advisory}</table>
+      <p class="note">Assessed evidence is surfaced and binds nothing, however confident it sounds.</p>` : ""}
+  `;
+  $("verdict").classList.add("shown");
+}
+
+async function evaluate() {
+  const button = $("run");
+  button.disabled = true;
+  try {
+    const body = {
+      policy: $("policy").value,
+      contribution: JSON.parse($("contribution").value),
+      evidence: JSON.parse($("evidence").value || "[]")
+    };
+    const governing = $("governing").value.trim();
+    if (governing) body.governing_policy = governing;
+
+    const response = await fetch("/v0/verdict", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+    render(data);
+  } catch (e) {
+    $("verdictBody").innerHTML = `<p class="err">${escape(e.message)}</p>`;
+    $("verdict").classList.add("shown");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+const select = $("scenario");
+for (const name of Object.keys(SCENARIOS)) {
+  select.append(new Option(name, name));
+}
+select.addEventListener("change", () => load(select.value));
+$("reset").addEventListener("click", () => load(select.value));
+$("run").addEventListener("click", evaluate);
+load(select.value);
+</script>
+</body>
+</html>
