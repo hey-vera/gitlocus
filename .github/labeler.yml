@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Area labels applied from the paths a pull request touches, so the release
+# notes and the issue list stay usable without anyone remembering to label.
+"area/core":
+  - changed-files: [{ any-glob-to-any-file: "crates/locus-core/**" }]
+"area/cli":
+  - changed-files: [{ any-glob-to-any-file: "crates/locus-cli/**" }]
+"area/policy":
+  - changed-files: [{ any-glob-to-any-file: [".gitlocus/**", "crates/locus-core/src/policy.rs"] }]
+"area/ci":
+  - changed-files: [{ any-glob-to-any-file: [".github/**", "scripts/**"] }]
+"kind/spec":
+  - changed-files: [{ any-glob-to-any-file: "spec/**" }]
+"kind/docs":
+  - changed-files: [{ any-glob-to-any-file: ["docs/**", "*.md"] }]

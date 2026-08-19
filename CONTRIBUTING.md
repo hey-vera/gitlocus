@@ -113,12 +113,17 @@ specification repositories, so the policy requires all three.
 
 Do not open a public issue. See [SECURITY.md](SECURITY.md).
 
-## Working on this over time
+## Finding something to work on
 
-[`docs/CONTINUITY.md`](docs/CONTINUITY.md) records the state of the project, the
-invariants, and what is settled versus open. It is updated by the same pull
-request that changes what it describes — if your change makes something in it
-untrue, fixing it is part of the change, not follow-up.
+The [issue list](https://github.com/hey-vera/gitlocus/issues) is the work, and
+[milestones](https://github.com/hey-vera/gitlocus/milestones) are the stages.
+Issues labelled `open-question` are genuinely undecided — argue with them before
+building anything, since a good argument is worth more there than a pull
+request.
+
+Decisions already taken live in [`docs/adr/`](docs/adr/). If you think one is
+wrong, say which part of its context has changed rather than reopening the
+conclusion.
 
 ## Code of conduct
 
