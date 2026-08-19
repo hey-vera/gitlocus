@@ -19,10 +19,8 @@ over-claiming costs you the benefit of the doubt on everything else you say.
 claim exists to save a reviewer work and a false one does the opposite.
 -->
 
-- [ ] `cargo build --all-targets`
-- [ ] `cargo test`
-- [ ] `cargo clippy --all-targets -- -D warnings`
-- [ ] `cargo fmt --all --check`
+- [ ] `just check`
+- [ ] `just ci`
 
 Anything you could not verify, or verified only partially:
 

@@ -24,19 +24,23 @@ and what the ordering costs.
 ## Build and test
 
 ```bash
-cargo build --all-targets
-cargo test
-cargo clippy --all-targets -- -D warnings
-cargo fmt --all --check
+just check   # build, tests, lint, fmt — the edit-compile loop
+just ci      # every check a runner can run without a base revision
 ```
 
-All four must pass. They are the same commands CI runs; there is no CI-only step.
+Each recipe is named for a required status check, and the workflows invoke the
+recipes rather than restating the commands, so a check cannot mean one thing
+locally and another in CI. `just --list` shows them all.
 
-To see what the gate will say about a change before pushing:
+Three of the fifteen required checks cannot run in full here, and
+[`.github/required-checks.txt`](.github/required-checks.txt) records which and
+why: `mutants` and `gate` need a base revision, which they take as an argument
+defaulting to `origin/main`, and the two CodeQL analyses run only on GitHub.
 
-```bash
-cargo run -p gitlocus-cli -- policy check --policy .gitlocus/policy.yml
-```
+`just` is the only tool beyond the Rust toolchain that `just check` needs;
+`cargo-deny`, `cargo-mutants` and `zizmor` are needed by the recipes named after
+them, and the justfile header says how to install each. On Windows under MSYS,
+set `LOCUS_CARGO` — the header says why.
 
 ## Rules that are not negotiable
 
@@ -104,6 +108,8 @@ same mistake — shipping a claim stronger than the implementation:
 | `locus --version` on the v0.0.2 release | reported `0.0.1`; the workspace version was never bumped |
 | the ruleset "restricts pushes to those paths to code owners" | it carries no path restriction at all |
 | the approval requirement gated merges | every merge to `main` logged `result=bypass`, so no rule in the ruleset had ever been evaluated |
+| the four documented commands were "the same commands CI runs" | CI passed `--locked` on all four and ran nine more checks besides, so a change could be green here and red on eleven required checks |
+| `cargo test --doc` kept "the model's documentation examples honest" | every fenced block in a doc comment is `yaml` or `text`, which rustdoc does not compile; the step reports `running 0 tests` |
 
 Run it, read the output, quote it. Under-claiming costs nothing; over-claiming
 costs the benefit of the doubt on everything else you say.
@@ -181,6 +187,8 @@ Open questions that are not yet decisions live in the
 | `crates/gitlocus-cli/` | The `locus` binary |
 | `.gitlocus/policy.yml` | The policy this repository runs on itself |
 | `docs/adr/` | Why decisions were made |
+| `justfile` | Every check, defined once; CI invokes these recipes |
+| `.github/required-checks.txt` | Each required check, and how it is run |
 
 ## Submitting work
 
