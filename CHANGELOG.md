@@ -12,6 +12,23 @@ release until v1. That is stated in the spec itself and it is not a formality.
 
 ### Added
 
+- **A contribution is governed by the policy at its base revision as well as the
+  one it ships.** Previously the gate read `.gitlocus/policy.yml` out of the pull
+  request's own tree, so a change deleting every rule was judged by a document
+  with no rules in it and came back `satisfied` with no evidence and no standing.
+  `locus verify` takes `--governing-policy`, repeatable; rules from the base are
+  reported prefixed `governing:`. ADR 0013.
+- **The gate is built from the base revision**, so the evaluator is no longer
+  supplied by its subject. Together with the above: a contribution cannot
+  influence how it is judged. ADR 0014.
+- **A mutation check over the changed lines** (`cargo mutants --in-diff`),
+  required by this repository's own policy. Coverage cannot see a loosened
+  assertion; a surviving mutant can. ADR 0015 amends ADR 0006, whose two
+  prescribed mechanisms turned out to be inapplicable and overstated
+  respectively.
+- **An `msrv` job** that reads `rust-version` out of the workspace manifest and
+  compiles against it, and a **`platforms` matrix** covering all three released
+  targets on native runners.
 - ADR 0011 — the merge decision is the kernel of a git platform, and it is built
   first because it is the half that cannot be commoditised. Supersedes ADR 0001,
   keeping its finding that building the hosting half first spends the budget on
@@ -20,15 +37,22 @@ release until v1. That is stated in the spec itself and it is not a formality.
   not the forge, is the integration surface that matters.
 - A release check that runs each built binary and refuses to ship it unless
   `locus --version` reports the tag being released.
+- Conformance tests for specification clauses 4 and 6, which had none. Every
+  clause 1 through 9 now has an executable form.
+- Sixteen integration tests driving the `locus` binary. It previously had one
+  test, checking only that clap's definition was well formed.
 
 ### Changed
 
 - The `main` branch ruleset no longer has a bypass. Direct pushes to `main` are
-  impossible for everyone including the owner, twelve deterministic checks are
+  impossible for everyone including the owner, fifteen deterministic checks are
   required, and required approvals are zero — see the README for why that is the
   honest configuration for a single-maintainer repository rather than a
-  weakening.
+  weakening. Every merge before this logged `result=bypass`, meaning no rule in
+  that ruleset had ever been evaluated.
 - The README opens on what this converges rather than on what it is not.
+- `THREAT-MODEL.md` gains an entry for rule deletion, and every entry now names
+  the test that backs it.
 
 ### Fixed
 
@@ -38,6 +62,13 @@ release until v1. That is stated in the spec itself and it is not a formality.
 - `THREAT-MODEL.md` and `.github/CODEOWNERS` both claimed the branch ruleset
   restricts pushes to privileged paths to code owners. It carries no path
   restriction; CODEOWNERS routes review.
+- `Contribution::id` could return an empty string and `PolicyError`'s `Display`
+  could render nothing, neither of which any test noticed. Both found by
+  mutation testing.
+- `crates/gitlocus-cli` had no behavioural tests: 24 surviving mutants, including
+  `changed_paths -> Ok(vec![])`, which makes every verdict `satisfied`, and
+  `verify -> Ok(Default::default())`, which makes the exit code unconditionally
+  zero. Now zero survivors.
 
 ### Removed
 
