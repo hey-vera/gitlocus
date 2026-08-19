@@ -28,6 +28,15 @@ allow = [
     "Zlib",
 ]
 
+# AGPL-3.0 is deliberately NOT in the list above. It is the licence of this
+# project's own server crate (ADR 0016), and allowing it globally would let an
+# AGPL *dependency* into the tree unnoticed — which for the Apache-2.0 kernel
+# would be a licence violation rather than a preference. Scoping it to the one
+# crate that is meant to carry it keeps the map enforced rather than declared.
+exceptions = [
+    { name = "locusd", allow = ["AGPL-3.0-only"] },
+]
+
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"

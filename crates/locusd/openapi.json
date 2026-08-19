@@ -1,0 +1,133 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "GitLocus evaluation service",
+    "version": "0.0.3",
+    "summary": "The merge decision, over HTTP.",
+    "description": "A pure evaluator. It stores nothing, reads no clock and makes no network call of its own, because a verdict is a pure function of (policy, contribution, evidence). The same evaluation runs in the `locus` CLI out of the same crate, so a verdict from here and a verdict from the command line cannot disagree.\n\nThere is no authentication because there is nothing to protect: no state, no secrets, no side effects. The answer is one the caller could compute themselves with the CLI.",
+    "license": {
+      "name": "AGPL-3.0-only",
+      "identifier": "AGPL-3.0-only"
+    }
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "summary": "Liveness, and which version is answering.",
+        "responses": {
+          "200": {
+            "description": "The service is up.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["status", "version"],
+                  "properties": {
+                    "status": { "const": "ok" },
+                    "version": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v0/openapi.json": {
+      "get": {
+        "summary": "This document.",
+        "responses": {
+          "200": {
+            "description": "The contract.",
+            "content": { "application/json": { "schema": { "type": "object" } } }
+          }
+        }
+      }
+    },
+    "/v0/verdict": {
+      "post": {
+        "summary": "Evaluate a contribution against a policy.",
+        "description": "Send `governing_policy` whenever the base revision has one. Without it a contribution is judged only by the document it ships, so a change that deletes the rule blocking it is judged by a policy that no longer contains that rule. The response reports `governed_by_base` so a caller who forgot can notice from the answer rather than from the documentation.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/VerdictRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The contribution was evaluated. A `blocked` decision is a successful evaluation: the status code describes the request, not the contribution.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/VerdictResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "The request, the policy or the contribution could not be read.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
+          "413": {
+            "description": "The body exceeds the size limit. Bodies are refused rather than truncated: truncating would hand the evaluator a document the caller did not send.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "VerdictRequest": {
+        "type": "object",
+        "required": ["policy", "contribution"],
+        "properties": {
+          "policy": {
+            "type": "string",
+            "description": "The policy at the revision under evaluation, as YAML."
+          },
+          "governing_policy": {
+            "type": ["string", "null"],
+            "description": "The policy at the base revision, as YAML. Omit only when the base revision genuinely has no policy."
+          },
+          "contribution": {
+            "type": "object",
+            "description": "See spec/schemas/contribution.schema.json."
+          },
+          "evidence": {
+            "type": "array",
+            "default": [],
+            "items": {
+              "type": "object",
+              "description": "See spec/schemas/evidence.schema.json. A `signer` present here is ignored: a signer is a conclusion a verifier reaches, never a claim a document makes."
+            }
+          }
+        }
+      },
+      "VerdictResponse": {
+        "type": "object",
+        "required": ["verdict", "governed_by_base"],
+        "properties": {
+          "verdict": {
+            "type": "object",
+            "description": "See spec/schemas/verdict.schema.json."
+          },
+          "governed_by_base": {
+            "type": "boolean",
+            "description": "Whether a base-revision policy was supplied and applied. Its absence changes what the verdict means."
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": ["error"],
+        "properties": { "error": { "type": "string" } }
+      }
+    }
+  }
+}

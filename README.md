@@ -335,4 +335,19 @@ ordering costs: [ADR 0011](docs/adr/0011-the-kernel-of-a-git-platform.md).
 
 ## Licence
 
-Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+**Apache-2.0**, except the server. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+| path | licence | why |
+|---|---|---|
+| `spec/`, `crates/gitlocus-core`, `crates/gitlocus-cli` | Apache-2.0 | the format should be implementable by anyone, with no contact with copyleft code |
+| [`crates/locusd`](crates/locusd) | AGPL-3.0-only | the server is the part a hosted competitor could take closed |
+
+Apache-2.0 is one-way compatible with the GPLv3 family, so the AGPL server may
+depend on the Apache kernel and not the reverse — which is the direction this
+project wants anyway. The split is enforced by CI rather than described here: a
+source file carrying the wrong SPDX identifier for its directory fails the
+`licence-headers` check, and `cargo-deny` scopes the AGPL allowance to that one
+crate so an AGPL *dependency* cannot enter the kernel unnoticed.
+
+Reasoning, including why the licence was chosen conservatively and the repository
+layout was not: [ADR 0016](docs/adr/0016-locusd-lives-here-under-agpl.md).

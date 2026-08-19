@@ -144,15 +144,23 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Every source file carries an SPDX identifier
+      # The licence map is executable rather than documentary. This repository
+      # is Apache-2.0 except for the server, which is AGPL-3.0 (ADR 0016), and a
+      # file carrying the wrong identifier fails here instead of being noticed
+      # in review, or not.
+      - name: Every source file carries the SPDX identifier its directory requires
         run: |
           set -euo pipefail
           fail=0
           while IFS= read -r f; do
-            if ! head -5 "$f" | grep -q "SPDX-License-Identifier: Apache-2.0"; then
-              echo "::error file=$f::missing SPDX-License-Identifier header"
+            case "$f" in
+              crates/locusd/*) want="AGPL-3.0-only" ;;
+              *)               want="Apache-2.0" ;;
+            esac
+            if ! head -5 "$f" | grep -q "SPDX-License-Identifier: $want"; then
+              echo "::error file=$f::expected SPDX-License-Identifier: $want"
               fail=1
             fi
           done < <(find crates scripts -type f \( -name '*.rs' -o -name '*.py' \))
-          [ "$fail" -eq 0 ] && echo "all source files carry SPDX headers"
+          [ "$fail" -eq 0 ] && echo "every source file carries the identifier its directory requires"
           exit "$fail"

@@ -1,0 +1,43 @@
+[package]
+name = "locusd"
+description = "GitLocus evaluation service: the merge decision, over HTTP."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+# AGPL-3.0, deliberately, and not by inheritance from the workspace. The kernel
+# stays Apache-2.0 so the format can be implemented by anyone; the server is the
+# part a hosted competitor could take closed. See ADR 0016 — the licence is a
+# one-way door and the repository layout is not, so the irreversible choice is
+# made conservatively.
+license = "AGPL-3.0-only"
+
+# Not intended for crates.io. It is a binary, and publishing it would imply a
+# stability promise this does not yet make.
+publish = false
+
+[lib]
+name = "locusd"
+path = "src/lib.rs"
+
+[[bin]]
+name = "locusd"
+path = "src/main.rs"
+
+[dependencies]
+gitlocus-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_norway.workspace = true
+tiny_http.workspace = true
+
+[lints]
+workspace = true
+
+# Integration tests are separate crates: they see the library API and these,
+# nothing else.
+[dev-dependencies]
+gitlocus-core.workspace = true
+serde_json.workspace = true
