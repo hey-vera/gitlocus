@@ -37,6 +37,13 @@ Three of the fifteen required checks cannot run in full here, and
 why: `mutants` and `gate` need a base revision, which they take as an argument
 defaulting to `origin/main`, and the two CodeQL analyses run only on GitHub.
 
+`crates/repo-conformance` asserts that the mapping holds: that every required
+check has a workflow job and a recipe, that no workflow restates a command the
+justfile already defines, and that the paths, links, version strings and
+decision records this document points at are real. It runs as part of `tests`.
+The reason it exists is a paragraph further down — claims live in prose, and
+prose has no CI.
+
 `just` is the only tool beyond the Rust toolchain that `just check` needs;
 `cargo-deny`, `cargo-mutants` and `zizmor` are needed by the recipes named after
 them, and the justfile header says how to install each. On Windows under MSYS,
@@ -120,6 +127,11 @@ into something that runs. That is the product thesis applied to the repository
 that ships it, and where a claim cannot be made executable, it should be written
 as the weaker thing that is true.
 
+Several rows above are now guarded by `crates/repo-conformance`, which is where
+a claim in this document goes once it can be made to fail. Adding a row without
+asking whether it can be guarded is how the table becomes a list of regrets
+instead of a list of checks.
+
 ## Traps worth not rediscovering
 
 - **Local Rust:** use `cargo +stable-x86_64-pc-windows-gnullvm`. The default
@@ -189,6 +201,7 @@ Open questions that are not yet decisions live in the
 | `docs/adr/` | Why decisions were made |
 | `justfile` | Every check, defined once; CI invokes these recipes |
 | `.github/required-checks.txt` | Each required check, and how it is run |
+| `crates/repo-conformance/` | This document, under test |
 
 ## Submitting work
 
