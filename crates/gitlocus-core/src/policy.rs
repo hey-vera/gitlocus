@@ -152,6 +152,20 @@ impl Policy {
         serde_norway::from_str(src).map_err(|e| PolicyError::Malformed(e.to_string()))
     }
 
+    /// Prefix every rule name, so a verdict says which document a rule came from.
+    ///
+    /// Without this, a contribution blocked by a rule it deleted reports the name
+    /// of a rule the reader cannot find in the file in front of them. `governing:
+    /// ci-and-policy` says the necessary thing: the rule you removed still applies
+    /// to the change that removed it.
+    #[must_use]
+    pub fn labelled(mut self, label: &str) -> Self {
+        for rule in &mut self.rules {
+            rule.name = format!("{label}:{}", rule.name);
+        }
+        self
+    }
+
     /// Compile path patterns so that evaluation cannot fail.
     ///
     /// # Errors
@@ -227,6 +241,30 @@ struct CompiledRule {
 }
 
 impl CompiledPolicy {
+    /// Combine policies so that every rule in every one of them applies.
+    ///
+    /// A contribution is governed by the policy at the revision under evaluation
+    /// **and** by the policy at the revision it is proposed against. Without the
+    /// second, a contribution can delete the rule that would have blocked it and
+    /// be judged by what remains — honest evaluation of a document the
+    /// contributor wrote, reaching a conclusion the repository never agreed to.
+    ///
+    /// The combination needs no new semantics. Evaluation already unions required
+    /// checks, takes the strictest approvals and tier, and demands that every
+    /// signer glob constraining a check matches, so concatenating the rules of
+    /// two documents produces exactly the intended reading and the result is
+    /// **never weaker than any input**.
+    ///
+    /// The asymmetry this creates is the desirable one: a rule a contribution
+    /// adds binds that contribution immediately, and a rule it removes keeps
+    /// binding until the change removing it has itself been accepted.
+    #[must_use]
+    pub fn merged(policies: Vec<Self>) -> Self {
+        Self {
+            rules: policies.into_iter().flat_map(|p| p.rules).collect(),
+        }
+    }
+
     /// Evaluate a contribution against this policy.
     ///
     /// Every rule whose paths match contributes: required checks are unioned, and
@@ -824,6 +862,130 @@ rules:
             ],
         );
         assert_eq!(v.approvals_present, 1);
+    }
+
+    // --- the governing policy is base and head together --------------------
+
+    /// What a contribution ships when it deletes the rules that govern it.
+    const GUTTED: &str = "version: 0\nrules: []\n";
+
+    fn gutted() -> CompiledPolicy {
+        Policy::from_yaml(GUTTED).unwrap().compile().unwrap()
+    }
+
+    fn governing() -> CompiledPolicy {
+        Policy::from_yaml(POLICY)
+            .unwrap()
+            .labelled("governing")
+            .compile()
+            .unwrap()
+    }
+
+    #[test]
+    fn a_contribution_cannot_escape_a_rule_by_deleting_it() {
+        let c = contribution(&[".github/workflows/ci.yml"], TrustTier::Unknown);
+
+        // The hole this exists to close, asserted rather than described: judged
+        // by the document it ships, a contribution that demands nothing of
+        // itself is satisfied, with no evidence and no standing.
+        let escaped = gutted().evaluate(&c, &[]);
+        assert_eq!(escaped.decision, Decision::Satisfied);
+        assert!(escaped.matched_rules.is_empty());
+
+        // Judged by the rules that were in force when it was proposed, it is not.
+        let governed = CompiledPolicy::merged(vec![governing(), gutted()]).evaluate(&c, &[]);
+        assert_eq!(governed.decision, Decision::Blocked);
+        assert!(
+            !governed.tier_satisfied,
+            "the deleted tier bar still applies"
+        );
+        assert_eq!(
+            governed.matched_rules,
+            vec!["governing:baseline", "governing:ci-config"],
+            "a verdict must name the document a rule came from, or the reader \
+             cannot find the rule that blocked them"
+        );
+    }
+
+    #[test]
+    fn merging_is_never_weaker_than_either_input() {
+        let c = contribution(&["src/main.rs"], TrustTier::Contributor);
+        let ev = [pass("build"), pass("tests")];
+
+        let alone = Policy::from_yaml(POLICY).unwrap().compile().unwrap();
+        assert_eq!(gutted().evaluate(&c, &ev).decision, Decision::Satisfied);
+        assert_eq!(alone.evaluate(&c, &ev).decision, Decision::NeedsHuman);
+
+        let merged = CompiledPolicy::merged(vec![
+            Policy::from_yaml(POLICY).unwrap().compile().unwrap(),
+            gutted(),
+        ]);
+        assert_eq!(
+            merged.evaluate(&c, &ev).decision,
+            Decision::NeedsHuman,
+            "the stricter input decides"
+        );
+    }
+
+    #[test]
+    fn a_rule_a_contribution_adds_binds_that_contribution() {
+        // The other half of the asymmetry. Tightening applies at once, so a rule
+        // cannot be introduced and dodged in the same change; loosening applies
+        // only once the change that loosens it has itself been accepted.
+        let added = r#"
+version: 0
+rules:
+  - name: new
+    when:
+      paths: ["**"]
+    require:
+      deterministic: [audit]
+"#;
+        let v = CompiledPolicy::merged(vec![
+            gutted(),
+            Policy::from_yaml(added).unwrap().compile().unwrap(),
+        ])
+        .evaluate(&contribution(&["src/main.rs"], TrustTier::Contributor), &[]);
+
+        assert_eq!(v.decision, Decision::Blocked);
+        assert_eq!(v.unmet[0].requirement, "audit");
+    }
+
+    #[test]
+    fn a_policy_merged_with_itself_decides_the_same_way() {
+        // Base and head are identical for every contribution that does not touch
+        // the policy, which is nearly all of them. The common case must not
+        // change meaning under anyone's feet.
+        let c = contribution(&["src/main.rs"], TrustTier::Contributor);
+        let ev = [pass("build"), approval("someone")];
+
+        let once = policy().evaluate(&c, &ev);
+        let twice = CompiledPolicy::merged(vec![policy(), policy()]).evaluate(&c, &ev);
+
+        assert_eq!(once.decision, twice.decision);
+        assert_eq!(once.unmet, twice.unmet);
+        assert_eq!(once.approvals_present, twice.approvals_present);
+        assert_eq!(once.tier_required, twice.tier_required);
+        assert!((once.rank.confidence - twice.rank.confidence).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn merging_does_not_disturb_determinism() {
+        let c = contribution(&[".github/workflows/ci.yml"], TrustTier::Maintainer);
+        let ev = [
+            pass("build"),
+            pass("tests"),
+            pass("workflow-audit"),
+            approval("m"),
+        ];
+        let mut reversed = ev.clone();
+        reversed.reverse();
+        let build = || CompiledPolicy::merged(vec![governing(), policy()]);
+
+        assert_eq!(
+            serde_json::to_string(&build().evaluate(&c, &ev)).unwrap(),
+            serde_json::to_string(&build().evaluate(&c, &reversed)).unwrap()
+        );
     }
 
     #[test]

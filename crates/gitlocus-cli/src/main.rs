@@ -39,6 +39,14 @@ enum Command {
         /// Path to the policy document.
         #[arg(long, default_value = ".gitlocus/policy.yml")]
         policy: PathBuf,
+        /// Policy at the revision this change is proposed against. May be repeated.
+        ///
+        /// A contribution is governed by these as well as by `--policy`. That is
+        /// what stops it weakening the rule that governs it: delete a rule and
+        /// the copy at the base revision still applies. Rules from these
+        /// documents are reported prefixed `governing:`.
+        #[arg(long)]
+        governing_policy: Vec<PathBuf>,
         /// Path to the contribution JSON, or `-` for stdin.
         #[arg(long)]
         contribution: PathBuf,
@@ -255,10 +263,17 @@ fn run() -> Result<ExitCode> {
     match Cli::parse().command {
         Command::Verify {
             policy,
+            governing_policy,
             contribution,
             evidence,
             format,
-        } => verify(&policy, &contribution, evidence.as_deref(), format),
+        } => verify(VerifyArgs {
+            policy,
+            governing_policy,
+            contribution,
+            evidence,
+            format,
+        }),
         Command::Policy { action } => {
             let PolicyAction::Check { policy } = action;
             check_policy(&policy)
@@ -410,18 +425,40 @@ fn check_vouch(action: VouchAction) -> Result<ExitCode> {
     })
 }
 
-fn verify(
-    policy_path: &Path,
-    contribution_path: &Path,
-    evidence_path: Option<&Path>,
+/// Inputs to `locus verify`, grouped so the function signature stays legible.
+struct VerifyArgs {
+    policy: PathBuf,
+    governing_policy: Vec<PathBuf>,
+    contribution: PathBuf,
+    evidence: Option<PathBuf>,
     format: Format,
-) -> Result<ExitCode> {
-    let policy = load_policy(policy_path)?;
+}
 
+fn verify(args: VerifyArgs) -> Result<ExitCode> {
+    let VerifyArgs {
+        policy: policy_path,
+        governing_policy,
+        contribution: contribution_path,
+        evidence: evidence_path,
+        format,
+    } = args;
+
+    // Every governing policy is loaded before the one under evaluation, and a
+    // failure to read or parse one is fatal rather than skipped. A verifier that
+    // quietly carried on without the base policy would silently reopen the hole
+    // that passing it closes.
+    let mut policies = Vec::with_capacity(governing_policy.len() + 1);
+    for path in &governing_policy {
+        policies.push(load_labelled_policy(path, Some("governing"))?);
+    }
+    policies.push(load_policy(&policy_path)?);
+    let policy = gitlocus_core::policy::CompiledPolicy::merged(policies);
+
+    let contribution_path = contribution_path.as_path();
     let contribution: Contribution = serde_json::from_str(&read(contribution_path)?)
         .with_context(|| format!("parsing contribution from {}", contribution_path.display()))?;
 
-    let evidence: Vec<Evidence> = match evidence_path {
+    let evidence: Vec<Evidence> = match evidence_path.as_deref() {
         Some(path) => serde_json::from_str(&read(path)?)
             .with_context(|| format!("parsing evidence from {}", path.display()))?,
         None => Vec::new(),
@@ -493,11 +530,24 @@ fn emit_evidence(action: EvidenceAction) -> Result<ExitCode> {
 }
 
 fn load_policy(path: &Path) -> Result<gitlocus_core::policy::CompiledPolicy> {
+    load_labelled_policy(path, None)
+}
+
+/// Load a policy, optionally prefixing its rule names so a verdict says which
+/// document a rule came from.
+fn load_labelled_policy(
+    path: &Path,
+    label: Option<&str>,
+) -> Result<gitlocus_core::policy::CompiledPolicy> {
     let src = read(path)?;
-    Policy::from_yaml(&src)
-        .with_context(|| format!("parsing policy at {}", path.display()))?
-        .compile()
-        .with_context(|| format!("compiling policy at {}", path.display()))
+    let parsed =
+        Policy::from_yaml(&src).with_context(|| format!("parsing policy at {}", path.display()))?;
+    match label {
+        Some(label) => parsed.labelled(label),
+        None => parsed,
+    }
+    .compile()
+    .with_context(|| format!("compiling policy at {}", path.display()))
 }
 
 /// Read a file, or stdin when the path is `-`.

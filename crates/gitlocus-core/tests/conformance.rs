@@ -7,8 +7,8 @@
 //! is the failure mode a specification repository most often ships: prose and
 //! code that drifted apart between releases.
 
-use gitlocus_core::policy::Policy;
-use gitlocus_core::verdict::UnmetReason;
+use gitlocus_core::policy::{CompiledPolicy, Policy};
+use gitlocus_core::verdict::{Decision, UnmetReason};
 use gitlocus_core::{Actor, ActorKind, Contribution, Evidence, EvidenceClass, Outcome, TrustTier};
 use std::path::PathBuf;
 
@@ -190,6 +190,97 @@ fn clause_5_evidence_order_does_not_change_the_verdict() {
     assert_eq!(
         serde_json::to_string(&policy().evaluate(&contribution, &forward)).unwrap(),
         serde_json::to_string(&policy().evaluate(&contribution, &reversed)).unwrap()
+    );
+}
+
+/// This repository's own policy, as the source it is written in.
+fn own_policy_src() -> String {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../.gitlocus/policy.yml");
+    std::fs::read_to_string(&path).expect("this repository must carry its own policy")
+}
+
+#[test]
+fn clause_4_matching_rules_union_and_take_the_strictest() {
+    // A contribution touching ordinary source and the policy at once is held to
+    // the policy rule, not to whichever matched first. Otherwise a contributor
+    // weakens the rule governing them by also touching a leniently governed file.
+    let mut c = sample_contribution();
+    c.changed_paths = vec![
+        "crates/gitlocus-core/src/policy.rs".into(),
+        ".gitlocus/policy.yml".into(),
+    ];
+    c.actor.tier = TrustTier::Contributor;
+
+    let v = Policy::from_yaml(&own_policy_src())
+        .unwrap()
+        .compile()
+        .unwrap()
+        .evaluate(&c, &[]);
+
+    assert_eq!(
+        v.tier_required,
+        TrustTier::Maintainer,
+        "strictest tier demanded"
+    );
+    assert!(!v.tier_satisfied);
+    assert!(
+        v.unmet.iter().any(|u| u.requirement == "workflow-audit"),
+        "requirements unioned across every matching rule, not just the first"
+    );
+}
+
+#[test]
+fn clause_6_a_contribution_cannot_weaken_the_policy_that_governs_it() {
+    // The clause that had no executable form, and the reason it needed one: the
+    // gate read only the policy the pull request shipped, so a change deleting
+    // every rule was judged by a document containing no rules, and came back
+    // satisfied with no evidence and no standing.
+    let mut c = sample_contribution();
+    c.changed_paths = vec![".gitlocus/policy.yml".into()];
+    c.actor.tier = TrustTier::Unknown;
+
+    let gutted = || {
+        Policy::from_yaml("version: 0\nrules: []\n")
+            .unwrap()
+            .compile()
+            .unwrap()
+    };
+
+    let shipped = gutted().evaluate(&c, &[]);
+    assert_eq!(
+        shipped.decision,
+        Decision::Satisfied,
+        "the failure being closed: judged by what it ships, it demands nothing of itself"
+    );
+
+    let governing = Policy::from_yaml(&own_policy_src())
+        .unwrap()
+        .labelled("governing")
+        .compile()
+        .unwrap();
+    let governed = CompiledPolicy::merged(vec![governing, gutted()]).evaluate(&c, &[]);
+
+    assert_eq!(governed.decision, Decision::Blocked);
+    assert!(!governed.tier_satisfied);
+    assert!(
+        governed
+            .matched_rules
+            .iter()
+            .any(|r| r == "governing:ci-and-policy"),
+        "the verdict must name the document the blocking rule came from"
+    );
+}
+
+#[test]
+fn clause_6_a_policy_that_cannot_be_read_is_not_the_same_as_one_that_is_absent() {
+    // Absence is legitimate — a first adoption has no policy at the base
+    // revision. A read or parse failure is not, and must not degrade into it.
+    assert!(Policy::from_yaml("version: 0\nrules: [").is_err());
+    assert!(
+        Policy::from_yaml("version: 99\nrules: []\n")
+            .unwrap()
+            .compile()
+            .is_err()
     );
 }
 
