@@ -132,6 +132,17 @@ run, not a gate.
 It is pinned and it runs in CI, where a compromised version could report success
 falsely — the same exposure every other check already carries, and no worse.
 
+**`--in-diff` misses a contribution that only weakens a test.** Mutants are
+generated from changed *implementation* lines, so a contribution that deletes an
+assertion and touches nothing else produces no mutants and passes. The realistic
+gate-gaming case is still caught: an agent weakening a test is doing it *because*
+it changed implementation that now fails, and those changed lines are mutated, so
+the weakened test shows up as survivors. What escapes is the two-step split —
+weaken the test in one contribution, change the code in the next. A scheduled
+full-tree run would close it, and is not built here; recording the gap is the
+point, because shipping the diff-scoped check while implying it covers both is
+exactly the class of over-claim this project tabulates against itself.
+
 **Still incomplete, and 0006 was right to say so.** A determined contributor can
 write a test that executes code and pins current behaviour without asserting
 anything meaningful, satisfying both coverage and mutation. What this removes is
