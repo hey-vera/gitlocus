@@ -3,11 +3,11 @@
 # Area labels applied from the paths a pull request touches, so the release
 # notes and the issue list stay usable without anyone remembering to label.
 "area/core":
-  - changed-files: [{ any-glob-to-any-file: "crates/locus-core/**" }]
+  - changed-files: [{ any-glob-to-any-file: "crates/gitlocus-core/**" }]
 "area/cli":
-  - changed-files: [{ any-glob-to-any-file: "crates/locus-cli/**" }]
+  - changed-files: [{ any-glob-to-any-file: "crates/gitlocus-cli/**" }]
 "area/policy":
-  - changed-files: [{ any-glob-to-any-file: [".gitlocus/**", "crates/locus-core/src/policy.rs"] }]
+  - changed-files: [{ any-glob-to-any-file: [".gitlocus/**", "crates/gitlocus-core/src/policy.rs"] }]
 "area/ci":
   - changed-files: [{ any-glob-to-any-file: [".github/**", "scripts/**"] }]
 "kind/spec":

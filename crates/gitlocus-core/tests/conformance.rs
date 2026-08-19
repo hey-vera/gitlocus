@@ -7,9 +7,9 @@
 //! is the failure mode a specification repository most often ships: prose and
 //! code that drifted apart between releases.
 
-use locus_core::policy::Policy;
-use locus_core::verdict::UnmetReason;
-use locus_core::{Actor, ActorKind, Contribution, Evidence, EvidenceClass, Outcome, TrustTier};
+use gitlocus_core::policy::Policy;
+use gitlocus_core::verdict::UnmetReason;
+use gitlocus_core::{Actor, ActorKind, Contribution, Evidence, EvidenceClass, Outcome, TrustTier};
 use std::path::PathBuf;
 
 fn spec_dir() -> PathBuf {
@@ -51,7 +51,7 @@ fn sample_contribution() -> Contribution {
             tier: TrustTier::Contributor,
             key_binding: Some("https://token.actions.githubusercontent.com".into()),
         },
-        changed_paths: vec!["crates/locus-core/src/policy.rs".into()],
+        changed_paths: vec!["crates/gitlocus-core/src/policy.rs".into()],
         forge_ref: Some("https://github.com/hey-vera/gitlocus/pull/1".into()),
     }
 }

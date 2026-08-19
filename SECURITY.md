@@ -48,7 +48,7 @@ that can, and the burden of making it checkable belongs with whoever is making i
 
 ## Scope
 
-In scope: this repository — the `locus-core` and `locus-cli` crates, the schemas
+In scope: this repository — the `gitlocus-core` and `gitlocus-cli` crates, the schemas
 in `spec/`, and the workflows in `.github/workflows/`.
 
 Of particular interest, because they are where a real bug would hurt most:

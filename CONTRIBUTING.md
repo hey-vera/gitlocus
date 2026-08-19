@@ -97,7 +97,7 @@ worth.
 
 1. the normative text updated,
 2. the JSON Schemas updated,
-3. the conformance suite in `crates/locus-core/tests/conformance.rs` updated to match.
+3. the conformance suite in `crates/gitlocus-core/tests/conformance.rs` updated to match.
 
 Prose and code drifting apart between releases is the characteristic failure of
 specification repositories, so the policy requires all three.

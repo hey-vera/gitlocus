@@ -13,7 +13,7 @@ not because it needs to be kept out. What follows is what the gate will check.
 GitLocus is a contribution-provenance and policy layer. Five types carry the
 model — Actor, Contribution, Evidence, Policy, Verdict — and the normative
 definitions live in [`spec/README.md`](spec/README.md). Read that before changing
-anything in `crates/locus-core`.
+anything in `crates/gitlocus-core`.
 
 ## Build and test
 
@@ -29,7 +29,7 @@ All four must pass. They are the same commands CI runs; there is no CI-only step
 To see what the gate will say about a change before pushing:
 
 ```bash
-cargo run -p locus-cli -- policy check --policy .gitlocus/policy.yml
+cargo run -p gitlocus-cli -- policy check --policy .gitlocus/policy.yml
 ```
 
 ## Rules that are not negotiable
@@ -89,9 +89,19 @@ same mistake — shipping a claim stronger than the implementation:
 | the gate reported a verdict on "the evidence" | it could only see its own workflow |
 | approvals were counted | from a self-asserted string |
 | README announced v0.0.1 | v0.0.2 had shipped |
+| a `Code of Conduct` reporting address | `gitlocus.dev` does not resolve; it would have bounced |
+| `skipped` counted as a deterministic pass | invariant 3 violated in the product, not the config |
+| crates named `locus-core` / `locus-cli` | both already taken on crates.io; unpublishable |
+| a step named "Publish immutable release" | see row two |
 
 Run it, read the output, quote it. Under-claiming costs nothing; over-claiming
 costs the benefit of the doubt on everything else you say.
+
+**The structural reason this keeps happening:** claims live in prose, and prose
+has no CI. The durable fix is not to be more careful — it is to convert a claim
+into something that runs. That is the product thesis applied to the repository
+that ships it, and where a claim cannot be made executable, it should be written
+as the weaker thing that is true.
 
 ## Traps worth not rediscovering
 
@@ -124,15 +134,15 @@ this drifts.
 - Tests are named as the claim they make — `assessed_evidence_never_satisfies_a_requirement`,
   not `test_policy_3`.
 - Changes to `spec/` require matching changes to the conformance suite in
-  `crates/locus-core/tests/conformance.rs`. The policy enforces this.
+  `crates/gitlocus-core/tests/conformance.rs`. The policy enforces this.
 
 ## Where things are
 
 | path | what |
 |---|---|
 | `spec/` | Normative model and JSON Schemas |
-| `crates/locus-core/` | Reference implementation of the model |
-| `crates/locus-cli/` | The `locus` binary |
+| `crates/gitlocus-core/` | Reference implementation of the model |
+| `crates/gitlocus-cli/` | The `locus` binary |
 | `.gitlocus/policy.yml` | The policy this repository runs on itself |
 | `docs/adr/` | Why decisions were made |
 
