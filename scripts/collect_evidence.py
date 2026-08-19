@@ -57,6 +57,23 @@ def relevant(runs):
         yield run
 
 
+def concluded(run):
+    """Whether a check run has reached an answer.
+
+    A conclusion is authoritative and terminal: the forge sets it only when the
+    run has finished, and a re-run creates a new check run rather than editing
+    this one. `status` is not authoritative on its own — GitHub has been observed
+    reporting `status: in_progress` alongside `conclusion: success`, and holding
+    that state for minutes.
+
+    Reading `status` first meant a check that had *passed* was recorded as
+    `inconclusive`, which the model correctly treats as unmet, so a green
+    contribution was blocked by a check that agreed with it. Safe in direction
+    and wrong in fact.
+    """
+    return run.get("status") == "completed" or bool(run.get("conclusion"))
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -70,7 +87,7 @@ def main():
         runs = json.load(handle)
 
     if args.pending_only:
-        pending = sorted(r["name"] for r in relevant(runs) if r["status"] != "completed")
+        pending = sorted(r["name"] for r in relevant(runs) if not concluded(r))
         if pending:
             print("pending: " + ", ".join(pending))
             return 1
@@ -82,7 +99,7 @@ def main():
     evidence = []
     for run in relevant(runs):
         conclusion = run.get("conclusion") or ""
-        if run["status"] != "completed":
+        if not concluded(run):
             outcome = "inconclusive"
         elif conclusion in PASSING:
             outcome = "pass"

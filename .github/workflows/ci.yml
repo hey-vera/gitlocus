@@ -66,6 +66,12 @@ jobs:
       # --all-targets skips doctests; the model's documentation carries examples
       # worth keeping honest.
       - run: cargo test --doc --locked
+      # The evidence collector decides what the gate is allowed to believe, so
+      # its edge cases are security-relevant. Two of the cases it covers are
+      # bugs this project shipped: `skipped` counted as a pass, and a check
+      # reporting a conclusion while still marked in progress counted as
+      # inconclusive, which blocked a contribution every check agreed with.
+      - run: python3 scripts/test_collect_evidence.py
 
   lint:
     name: lint
