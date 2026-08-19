@@ -278,6 +278,128 @@ fn evidence_emit_writes_the_record_and_never_a_signer() {
     );
 }
 
+// --- authorship -----------------------------------------------------------
+
+#[test]
+fn a_declaration_is_always_attested_and_never_signed_by_declaring_it() {
+    // Class is not a choice here. A deterministic or assessed authorship record
+    // would be a machine declaring authorship, which is the thing the mechanism
+    // exists to prevent — so the command cannot produce one.
+    let out = locus()
+        .args([
+            "authorship",
+            "declare",
+            "--claim",
+            "human",
+            "--subject",
+            "bbbb",
+            "--by",
+            "a-named-human",
+            "--produced-at",
+            "2026-08-19T00:00:00Z",
+        ])
+        .output()
+        .expect("running locus");
+
+    assert!(out.status.success());
+    let printed = stdout_of(&out);
+    assert!(printed.contains(r#""class":"attested""#), "{printed}");
+    assert!(printed.contains(r#""claim":"human""#), "{printed}");
+    assert!(
+        printed.contains(r#""produced_by":"a-named-human""#),
+        "{printed}"
+    );
+    assert!(
+        !printed.contains("signer"),
+        "declaring does not sign: {printed}"
+    );
+}
+
+#[test]
+fn a_derived_claim_without_a_source_is_refused() {
+    // A derived claim whose source is unknown says almost nothing, and the
+    // source is the whole value of the record to whoever audits the licence.
+    let out = locus()
+        .args([
+            "authorship",
+            "declare",
+            "--claim",
+            "derived",
+            "--subject",
+            "bbbb",
+            "--by",
+            "someone",
+            "--produced-at",
+            "2026-08-19T00:00:00Z",
+        ])
+        .output()
+        .expect("running locus");
+
+    assert!(!out.status.success());
+    assert!(
+        String::from_utf8_lossy(&out.stderr).contains("--source"),
+        "the error must say what is missing"
+    );
+}
+
+#[test]
+fn an_undeclared_contribution_is_refused_by_a_human_only_policy() {
+    // End to end through the binary: silence is read as generated, so a policy
+    // that declines generated work declines a contribution that says nothing.
+    let dir = TempDir::new("authorship-e2e");
+    let policy = dir.write(
+        "policy.yml",
+        "version: 0\nrules:\n  - name: licence\n    when:\n      paths: [\"**\"]\n    require:\n      authorship: [human, directed_agent]\n",
+    );
+    let contribution = dir.write("contribution.json", &contribution_json(r#""src/main.rs""#));
+
+    let silent = locus()
+        .args(["verify", "--policy"])
+        .arg(&policy)
+        .arg("--contribution")
+        .arg(&contribution)
+        .output()
+        .expect("running locus");
+    assert!(!silent.status.success(), "{}", stdout_of(&silent));
+    assert!(
+        stdout_of(&silent).contains("Undeclared"),
+        "{}",
+        stdout_of(&silent)
+    );
+
+    // The same contribution with a declaration a named party is answerable for.
+    let declaration = locus()
+        .args([
+            "authorship",
+            "declare",
+            "--claim",
+            "directed_agent",
+            "--subject",
+            "bbbb",
+            "--by",
+            "josh",
+            "--produced-at",
+            "2026-08-19T00:00:00Z",
+        ])
+        .output()
+        .expect("running locus");
+    let evidence = dir.write(
+        "evidence.json",
+        &format!("[{}]", stdout_of(&declaration).trim()),
+    );
+
+    let declared = locus()
+        .args(["verify", "--policy"])
+        .arg(&policy)
+        .arg("--contribution")
+        .arg(&contribution)
+        .arg("--evidence")
+        .arg(&evidence)
+        .output()
+        .expect("running locus");
+    assert!(declared.status.success(), "{}", stdout_of(&declared));
+}
+
 // --- vouch ----------------------------------------------------------------
 
 #[test]

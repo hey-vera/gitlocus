@@ -77,6 +77,67 @@ that force this into one identity lose whichever half they discard. GitLocus
 records both, and an agent that nobody will answer for does not clear a meaningful
 trust tier.
 
+## Keeping a licence enforceable
+
+The flagship application, and the one nothing else does.
+
+Copyleft does not die by being violated. It dies by **dilution**. The US
+Copyright Office holds that AI output needs sufficient human control over the
+expressive elements to be copyrightable, and that prompts alone do not supply it.
+Code failing that bar is effectively public domain — and public domain code
+inside a copyleft project is not bound by the copyleft. Every merged contribution
+nobody can claim authorship of replaces enforceable code with unenforceable code.
+Nothing visibly breaks. At some point the licence is a statement about nothing.
+
+You cannot read this off the source, which is why detection fails. But
+copyrightability turns on **human creative control, which is a fact about
+process** — and process can be recorded at the moment it happens.
+
+```yaml
+require:
+  authorship: [human, directed_agent]   # generated code cannot enter
+```
+
+A contributor declares, and is answerable for the declaration:
+
+```bash
+locus authorship declare --claim directed_agent \
+  --subject "$(git rev-parse HEAD)" --by you@example.com \
+  --produced-at "$(date -u +%FT%TZ)"
+```
+
+| claim | meaning |
+|---|---|
+| `human` | A person wrote it. |
+| `directed_agent` | An agent produced it; a person directed the expressive choices and asserts creative control. |
+| `generated` | An agent produced it and nobody claims creative control. Likely uncopyrightable. |
+| `derived` | Copied or adapted from an identified source, which must be named. |
+
+**Silence is not a claim.** A contribution that declares nothing is evaluated as
+`generated`, so it fails the rule above. Any weaker default would let every
+undeclared contribution quietly claim copyright on the project's behalf — which
+is the dilution this exists to make visible.
+
+**This is a declaration, not a detection**, and the distinction is the whole
+point. Nothing inspects your source and guesses. A named party states something
+and is answerable if it is false — the same instrument as the DCO, which works
+for exactly that reason. We cannot verify a claim is true; neither can the DCO,
+and the DCO is the backbone of kernel contribution. What the record provides is a
+named party, a statement and a timestamp, which is precisely what an auditor
+needs and what nothing else produces.
+
+Not legal advice, and not a legal conclusion — evidence. See
+[ADR 0008](docs/adr/0008-authorship-is-declared-not-detected.md).
+
+**What is not solved yet:** granularity. One declaration covering fifty files is
+a rubber stamp, and it gets worse as models improve. The durable answer is that
+the harness emits `generated` per hunk and a person raises specific ones, which
+is [#15](https://github.com/hey-vera/gitlocus/issues/15) and
+[ADR 0012](docs/adr/0012-the-harness-is-the-integration-surface.md). This
+repository does not yet require authorship on itself for that reason: nothing
+produces the declaration automatically, and requiring one to be hand-written per
+pull request would be ceremony rather than evidence.
+
 ## Use it on your repository
 
 Five lines. No Rust toolchain, no contribution document written by hand.

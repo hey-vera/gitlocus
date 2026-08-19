@@ -7,6 +7,7 @@
 //! evaluation happens on a laptop or in CI.
 
 use crate::actor::TrustTier;
+use crate::authorship::{self, AuthorshipClaim, AuthorshipKind};
 use crate::contribution::Contribution;
 use crate::evidence::{Evidence, EvidenceClass, Outcome};
 use crate::verdict::{Decision, Rank, Unmet, UnmetReason, Verdict};
@@ -116,6 +117,28 @@ pub struct Require {
     /// ```
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approvals_signed_by: Option<String>,
+
+    /// Authorship claims this rule accepts.
+    ///
+    /// Empty says nothing about authorship and constrains nothing. Naming any
+    /// claim constrains all of them: what is not named is refused.
+    ///
+    /// ```yaml
+    /// require:
+    ///   authorship: [human, directed_agent]   # generated code cannot enter
+    /// ```
+    ///
+    /// **Silence is read as `generated`.** A contribution that declares nothing
+    /// fails a rule that does not accept `generated`, which is what makes
+    /// asserting authorship a deliberate act rather than a default nobody
+    /// noticed. See [`crate::authorship`].
+    ///
+    /// Where several matching rules constrain authorship, a claim must be
+    /// accepted by **all** of them — the intersection, not the union. Two rules
+    /// saying different things about one contribution is stricter, not
+    /// ambiguous, exactly as it is for signer globs.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub authorship: Vec<AuthorshipKind>,
 }
 
 fn min_tier_default() -> TrustTier {
@@ -240,7 +263,77 @@ struct CompiledRule {
     approvals_signer: Option<GlobMatcher>,
 }
 
+/// Everything the matching rules ask of a contribution, combined.
+///
+/// Separated from evaluation so that "what did the policy ask for" and "does the
+/// evidence answer it" stay legible as two questions rather than one long one.
+struct Demands<'a> {
+    matched: Vec<String>,
+    required: BTreeSet<&'a str>,
+    approvals_required: u32,
+    tier_required: TrustTier,
+    signer_constraints: Vec<(&'a str, &'a GlobMatcher)>,
+    approval_signers: Vec<&'a GlobMatcher>,
+    authorship_accepted: Option<BTreeSet<AuthorshipKind>>,
+}
+
 impl CompiledPolicy {
+    /// Combine every matching rule into one set of demands.
+    ///
+    /// Requirements union, approvals and tier take the strictest, every signer
+    /// glob applies, and accepted authorship claims **intersect** — a claim has
+    /// to be acceptable to all of them. Union anywhere here would let a
+    /// contribution shop for the most permissive rule it happened to match.
+    fn demands_of(&self, contribution: &Contribution) -> Demands<'_> {
+        let mut d = Demands {
+            matched: Vec::new(),
+            required: BTreeSet::new(),
+            approvals_required: 0,
+            tier_required: TrustTier::Unknown,
+            signer_constraints: Vec::new(),
+            approval_signers: Vec::new(),
+            authorship_accepted: None,
+        };
+
+        for compiled in &self.rules {
+            if !contribution
+                .changed_paths
+                .iter()
+                .any(|p| compiled.paths.is_match(p))
+            {
+                continue;
+            }
+            let rule = &compiled.rule;
+            d.matched.push(rule.name.clone());
+            d.required
+                .extend(rule.require.deterministic.iter().map(String::as_str));
+            d.approvals_required = d.approvals_required.max(rule.require.approvals);
+            d.tier_required = d.tier_required.max(rule.require.min_tier);
+
+            if let Some(matcher) = &compiled.approvals_signer {
+                d.approval_signers.push(matcher);
+            }
+
+            if !rule.require.authorship.is_empty() {
+                let named: BTreeSet<AuthorshipKind> =
+                    rule.require.authorship.iter().copied().collect();
+                d.authorship_accepted = Some(match d.authorship_accepted.take() {
+                    Some(existing) => existing.intersection(&named).copied().collect(),
+                    None => named,
+                });
+            }
+
+            for (kind, matcher) in &compiled.signers {
+                // A signature requirement implies the check is required at all.
+                // Demanding a signature on something optional would silently do
+                // nothing, which is worse than either alternative.
+                d.required.insert(kind.as_str());
+                d.signer_constraints.push((kind.as_str(), matcher));
+            }
+        }
+        d
+    }
+
     /// Combine policies so that every rule in every one of them applies.
     ///
     /// A contribution is governed by the policy at the revision under evaluation
@@ -274,44 +367,15 @@ impl CompiledPolicy {
     #[must_use]
     pub fn evaluate(&self, contribution: &Contribution, evidence: &[Evidence]) -> Verdict {
         let digest = contribution.head_digest.as_str();
-
-        let mut matched = Vec::new();
-        let mut required: BTreeSet<&str> = BTreeSet::new();
-        let mut approvals_required = 0;
-        let mut tier_required = TrustTier::Unknown;
-
-        // Every constraint from every matching rule applies. Where two rules
-        // constrain the same check, both signer globs must match: a document
-        // that says two things about one requirement is stricter, not ambiguous.
-        let mut signer_constraints: Vec<(&str, &GlobMatcher)> = Vec::new();
-        let mut approval_signers: Vec<&GlobMatcher> = Vec::new();
-
-        for compiled in &self.rules {
-            if !contribution
-                .changed_paths
-                .iter()
-                .any(|p| compiled.paths.is_match(p))
-            {
-                continue;
-            }
-            let rule = &compiled.rule;
-            matched.push(rule.name.clone());
-            required.extend(rule.require.deterministic.iter().map(String::as_str));
-            approvals_required = approvals_required.max(rule.require.approvals);
-            tier_required = tier_required.max(rule.require.min_tier);
-
-            if let Some(matcher) = &compiled.approvals_signer {
-                approval_signers.push(matcher);
-            }
-
-            for (kind, matcher) in &compiled.signers {
-                // A signature requirement implies the check is required at all.
-                // Demanding a signature on something optional would silently do
-                // nothing, which is worse than either alternative.
-                required.insert(kind.as_str());
-                signer_constraints.push((kind.as_str(), matcher));
-            }
-        }
+        let Demands {
+            matched,
+            required,
+            approvals_required,
+            tier_required,
+            signer_constraints,
+            approval_signers,
+            authorship_accepted,
+        } = self.demands_of(contribution);
 
         let mut unmet = Vec::new();
         let mut satisfied = 0_u32;
@@ -325,6 +389,20 @@ impl CompiledPolicy {
                 None => satisfied += 1,
                 Some(reason) => unmet.push(Unmet {
                     requirement: (*kind).to_string(),
+                    reason,
+                }),
+            }
+        }
+
+        // Authorship is a requirement like any other, so it counts toward the
+        // total and toward confidence rather than sitting outside the ranking.
+        let mut total = u32::try_from(required.len()).unwrap_or(u32::MAX);
+        if let Some(accepted) = &authorship_accepted {
+            total = total.saturating_add(1);
+            match classify_authorship(digest, evidence, accepted) {
+                None => satisfied += 1,
+                Some(reason) => unmet.push(Unmet {
+                    requirement: "authorship".to_string(),
                     reason,
                 }),
             }
@@ -361,7 +439,6 @@ impl CompiledPolicy {
             .collect();
 
         let tier_satisfied = contribution.actor.tier.satisfies(tier_required);
-        let total = u32::try_from(required.len()).unwrap_or(u32::MAX);
 
         let decision = if !tier_satisfied || !unmet.is_empty() {
             Decision::Blocked
@@ -393,6 +470,47 @@ impl CompiledPolicy {
                 human_cost: approvals_required.saturating_sub(approvals_present),
             },
         }
+    }
+}
+
+/// Whether the authorship a contribution declares is one the policy accepts.
+///
+/// Only `attested` records are consulted. A declaration is a party accepting
+/// responsibility for a statement, and honouring one on a `deterministic` or
+/// `assessed` record would let a test runner or a model declare authorship —
+/// which is precisely what this mechanism exists to make impossible.
+///
+/// **Every declaration must be accepted, not merely one of them.** A
+/// contribution carrying both a `human` and a `generated` claim contains
+/// generated work, and a policy refusing generated work refuses it.
+fn classify_authorship(
+    digest: &str,
+    evidence: &[Evidence],
+    accepted: &BTreeSet<AuthorshipKind>,
+) -> Option<UnmetReason> {
+    let declared: BTreeSet<AuthorshipKind> = evidence
+        .iter()
+        .filter(|e| {
+            e.class == EvidenceClass::Attested
+                && e.outcome == Outcome::Pass
+                && e.subject_digest == digest
+        })
+        .filter_map(|e| e.authorship.as_ref().map(AuthorshipClaim::kind))
+        .collect();
+
+    if declared.is_empty() {
+        // Silence is not a claim: the weakest applies.
+        return if accepted.contains(&authorship::UNDECLARED) {
+            None
+        } else {
+            Some(UnmetReason::Undeclared)
+        };
+    }
+
+    if declared.is_subset(accepted) {
+        None
+    } else {
+        Some(UnmetReason::WrongAuthorship)
     }
 }
 
@@ -509,6 +627,7 @@ rules:
             produced_at: "2026-08-18T00:00:00Z".into(),
             source_uri: None,
             summary: None,
+            authorship: None,
             signer: None,
         }
     }
@@ -523,6 +642,7 @@ rules:
             produced_at: "2026-08-18T00:00:00Z".into(),
             source_uri: None,
             summary: None,
+            authorship: None,
             signer: None,
         }
     }
@@ -889,6 +1009,203 @@ rules:
             ],
         );
         assert_eq!(v.approvals_present, 1);
+    }
+
+    // --- authorship ---------------------------------------------------------
+
+    const HUMAN_ONLY: &str = r#"
+version: 0
+rules:
+  - name: licence-integrity
+    when:
+      paths: ["**"]
+    require:
+      authorship: [human, directed_agent]
+"#;
+
+    fn human_authorship() -> CompiledPolicy {
+        Policy::from_yaml(HUMAN_ONLY).unwrap().compile().unwrap()
+    }
+
+    fn declares(claim: AuthorshipClaim) -> Evidence {
+        let mut e = approval("a-named-human");
+        e.kind = "authorship".into();
+        e.authorship = Some(claim);
+        e
+    }
+
+    #[test]
+    fn silence_is_read_as_generated_and_refused() {
+        // The property the whole mechanism rests on. If undeclared work passed a
+        // human-only rule, every unlabelled contribution would quietly claim
+        // copyright and the licence would dilute exactly as before.
+        let v = human_authorship().evaluate(
+            &contribution(&["src/main.rs"], TrustTier::Contributor),
+            &[pass("build")],
+        );
+        assert_eq!(v.decision, Decision::Blocked);
+        assert_eq!(v.unmet[0].requirement, "authorship");
+        assert_eq!(v.unmet[0].reason, UnmetReason::Undeclared);
+    }
+
+    #[test]
+    fn a_declaration_the_policy_accepts_satisfies_it() {
+        for claim in [AuthorshipClaim::Human, AuthorshipClaim::DirectedAgent] {
+            let v = human_authorship().evaluate(
+                &contribution(&["src/main.rs"], TrustTier::Contributor),
+                &[declares(claim.clone())],
+            );
+            assert_eq!(v.decision, Decision::Satisfied, "{claim:?}: {:?}", v.unmet);
+            // Authorship counts toward the ranking like any other requirement.
+            // Without this the decision is right and the confidence is wrong,
+            // which is invisible until a queue sorts by it — and a queue sorted
+            // by a number nobody checks is the failure ranking exists to avoid.
+            assert!(
+                (v.rank.confidence - 1.0).abs() < f64::EPSILON,
+                "{claim:?}: confidence {}",
+                v.rank.confidence
+            );
+        }
+    }
+
+    #[test]
+    fn an_unmet_authorship_requirement_lowers_confidence_rather_than_being_free() {
+        let v = human_authorship().evaluate(
+            &contribution(&["src/main.rs"], TrustTier::Contributor),
+            &[declares(AuthorshipClaim::Generated)],
+        );
+        assert!(
+            v.rank.confidence.abs() < f64::EPSILON,
+            "confidence {}",
+            v.rank.confidence
+        );
+    }
+
+    #[test]
+    fn generated_work_is_refused_when_it_is_declared_honestly() {
+        // The flagship case: a contribution that says what it is, and a project
+        // that has decided it does not want that.
+        let v = human_authorship().evaluate(
+            &contribution(&["src/main.rs"], TrustTier::Contributor),
+            &[declares(AuthorshipClaim::Generated)],
+        );
+        assert_eq!(v.decision, Decision::Blocked);
+        assert_eq!(v.unmet[0].reason, UnmetReason::WrongAuthorship);
+    }
+
+    #[test]
+    fn one_honest_declaration_is_not_laundered_by_another() {
+        // A contribution carrying both a human claim and a generated claim
+        // contains generated work. Accepting it because *some* declaration is
+        // acceptable would make the rule trivially satisfiable by attaching one
+        // extra record.
+        let v = human_authorship().evaluate(
+            &contribution(&["src/main.rs"], TrustTier::Contributor),
+            &[
+                declares(AuthorshipClaim::Human),
+                declares(AuthorshipClaim::Generated),
+            ],
+        );
+        assert_eq!(v.decision, Decision::Blocked);
+        assert_eq!(v.unmet[0].reason, UnmetReason::WrongAuthorship);
+    }
+
+    #[test]
+    fn a_machine_cannot_declare_authorship() {
+        // Only an attested record carries a declaration. Honouring one on a
+        // deterministic or assessed record would let a test runner or a model
+        // assert human authorship, which is the thing this exists to prevent.
+        for class in [EvidenceClass::Deterministic, EvidenceClass::Assessed] {
+            let mut machine = declares(AuthorshipClaim::Human);
+            machine.class = class;
+            let v = human_authorship().evaluate(
+                &contribution(&["src/main.rs"], TrustTier::Contributor),
+                &[machine],
+            );
+            assert_eq!(v.decision, Decision::Blocked, "{class:?}");
+            assert_eq!(v.unmet[0].reason, UnmetReason::Undeclared, "{class:?}");
+        }
+    }
+
+    #[test]
+    fn a_declaration_about_another_revision_does_not_count() {
+        let mut stale = declares(AuthorshipClaim::Human);
+        stale.subject_digest = "an-older-revision".into();
+        let v = human_authorship().evaluate(
+            &contribution(&["src/main.rs"], TrustTier::Contributor),
+            &[stale],
+        );
+        assert_eq!(v.unmet[0].reason, UnmetReason::Undeclared);
+    }
+
+    #[test]
+    fn matching_rules_intersect_rather_than_union_what_they_accept() {
+        // Weak-rule shopping, applied to authorship. A contribution matching a
+        // permissive rule and a strict one is held to the strict one.
+        let src = r#"
+version: 0
+rules:
+  - name: broad
+    when:
+      paths: ["**"]
+    require:
+      authorship: [human, directed_agent, generated]
+  - name: sensitive
+    when:
+      paths: ["src/**"]
+    require:
+      authorship: [human]
+"#;
+        let policy = || Policy::from_yaml(src).unwrap().compile().unwrap();
+        let c = contribution(&["src/main.rs"], TrustTier::Contributor);
+
+        assert_eq!(
+            policy()
+                .evaluate(&c, &[declares(AuthorshipClaim::DirectedAgent)])
+                .unmet[0]
+                .reason,
+            UnmetReason::WrongAuthorship,
+            "the stricter rule decides"
+        );
+        assert_eq!(
+            policy()
+                .evaluate(&c, &[declares(AuthorshipClaim::Human)])
+                .decision,
+            Decision::Satisfied
+        );
+    }
+
+    #[test]
+    fn a_derived_claim_keeps_its_source_and_is_named_only_by_kind() {
+        let src = r#"
+version: 0
+rules:
+  - name: allow-derived
+    when:
+      paths: ["**"]
+    require:
+      authorship: [derived]
+"#;
+        let claim = AuthorshipClaim::Derived {
+            source: "https://github.com/acme/widgets".into(),
+            license: Some("Apache-2.0".into()),
+        };
+        let v = Policy::from_yaml(src).unwrap().compile().unwrap().evaluate(
+            &contribution(&["src/main.rs"], TrustTier::Contributor),
+            &[declares(claim)],
+        );
+        assert_eq!(v.decision, Decision::Satisfied, "{:?}", v.unmet);
+    }
+
+    #[test]
+    fn a_policy_saying_nothing_about_authorship_constrains_nothing() {
+        // Existing policies must not change meaning under their feet.
+        let v = policy().evaluate(
+            &contribution(&["src/main.rs"], TrustTier::Contributor),
+            &[pass("build"), pass("tests"), approval("someone")],
+        );
+        assert_eq!(v.decision, Decision::Satisfied);
+        assert!(v.unmet.is_empty());
     }
 
     // --- the governing policy is base and head together --------------------

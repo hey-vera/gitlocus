@@ -76,6 +76,19 @@
                 },
                 "default": {}
               },
+              "authorship": {
+                "type": "array",
+                "description": "Authorship claims this rule accepts. Empty constrains nothing; naming any claim refuses every claim not named. Silence from a contribution is read as generated. Where several matching rules constrain authorship, a claim must be accepted by all of them.",
+                "items": {
+                  "enum": [
+                    "human",
+                    "directed_agent",
+                    "generated",
+                    "derived"
+                  ]
+                },
+                "default": []
+              },
               "approvals_signed_by": {
                 "type": "string",
                 "minLength": 1,
