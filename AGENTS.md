@@ -70,10 +70,43 @@ wrong.
 
 ## Picking this project up
 
-Read [`docs/CONTINUITY.md`](docs/CONTINUITY.md) first. It is the state of the
-world, the decisions you may not quietly reverse, and the standard the work is
-held to. It is versioned with the code so it cannot go stale the way a handoff
-note does — and keeping it current is part of the work.
+State lives in GitHub, not in a document someone has to remember to update:
+**open issues** are the work, **milestones** are the stages, **releases** are
+what shipped, and `docs/adr/` is why every decision is what it is. Start with
+the issue list.
+
+## Verify before you claim
+
+The standard is that every claim in this repository is backed by something that
+runs. It is the product thesis applied to the project's own documentation, and
+it is the thing most likely to slip. It has slipped, and every time it was the
+same mistake — shipping a claim stronger than the implementation:
+
+| claimed | actual |
+|---|---|
+| "GitLocus reads `VOUCHED.td`" | no reader existed |
+| "the release is immutable" | a repository setting, never enabled |
+| the gate reported a verdict on "the evidence" | it could only see its own workflow |
+| approvals were counted | from a self-asserted string |
+| README announced v0.0.1 | v0.0.2 had shipped |
+
+Run it, read the output, quote it. Under-claiming costs nothing; over-claiming
+costs the benefit of the doubt on everything else you say.
+
+## Traps worth not rediscovering
+
+- **Local Rust:** use `cargo +stable-x86_64-pc-windows-gnullvm`. The default
+  toolchain resolves to an MSVC target where MSYS `link` shadows MSVC's linker.
+- **Windows CI runners default to PowerShell**, where `"$VAR"` silently expands
+  to nothing. Set `shell: bash` as a job default, not per step.
+- **`pull_request_target` is banned here** and `supply-chain.yml` enforces it.
+  Several actions document that trigger as their normal usage; use
+  `pull_request` and accept the reduced behaviour on fork contributions.
+- **`gh attestation verify` yields signer identities** shaped exactly like a
+  `signed_by` glob. Try that before building a signing path.
+- **A permissive `signed_by` glob is close to no constraint** — anyone can run a
+  workflow in their own fork and get a valid identity from the same issuer. Pin
+  the workflow path.
 
 ## Before proposing a design change
 

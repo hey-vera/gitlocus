@@ -5,8 +5,12 @@ The problems this project expects, including the ones that have not arrived yet.
 
 This document exists so the reasoning outlives the conversations it came from. A
 design that is only defensible in someone's head drifts the moment that person is
-busy. Where a problem has produced a decision, the decision is linked; where it
-has not, the gap is named rather than left implicit.
+busy.
+
+It records *why*, not *status*. What is being worked on lives in the
+[issue list](https://github.com/hey-vera/gitlocus/issues); the problems still
+open are labelled [`open-question`](https://github.com/hey-vera/gitlocus/labels/open-question)
+and are worth arguing with before anyone builds against them.
 
 ---
 

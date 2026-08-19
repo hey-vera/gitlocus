@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Release notes are generated from merged pull requests rather than maintained
+# by hand. A changelog someone has to remember to update is a changelog that is
+# wrong, and the labels already exist for other reasons.
+changelog:
+  exclude:
+    labels: [ignore-for-release]
+  categories:
+    - title: Security
+      labels: [kind/security]
+    - title: Specification
+      labels: [kind/spec]
+    - title: Features
+      labels: [kind/feature]
+    - title: Fixes
+      labels: [kind/fix]
+    - title: Documentation
+      labels: [kind/docs]
+    - title: Build and tooling
+      labels: [kind/chore]
+    - title: Dependencies
+      labels: [dependencies]
+    - title: Everything else
+      labels: ["*"]

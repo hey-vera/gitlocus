@@ -171,9 +171,9 @@ Full list: [docs/NON-GOALS.md](docs/NON-GOALS.md).
 
 | | |
 |---|---|
-| [docs/CONTINUITY.md](docs/CONTINUITY.md) | **Start here if you are picking this up** — state, invariants, what is settled, what is open |
 | [spec/](spec/) | The normative model and JSON Schemas |
 | [docs/adr/](docs/adr/) | Why things are the way they are |
+| [issues](https://github.com/hey-vera/gitlocus/issues) · [milestones](https://github.com/hey-vera/gitlocus/milestones) | What is being worked on, and the stages |
 | [docs/AGENT-ERA.md](docs/AGENT-ERA.md) | The problems this is an answer to — swarms, harnesses, and models that do not exist yet — and which remain unsolved |
 | [THREAT-MODEL.md](THREAT-MODEL.md) | What this defends against, and what it does not |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Including the AI-contribution policy |

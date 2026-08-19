@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Applies area labels from the paths a pull request touches. Labels drive the
+# generated release notes and make the issue list navigable, and neither should
+# depend on anyone remembering.
+
+name: Label
+
+# Deliberately `pull_request`, not the target variant. The labeler is normally
+# documented with `pull_request_target` so it can label fork contributions, but
+# that trigger runs with a writable token in the base repository's context and
+# is banned here outright — see supply-chain.yml. A fork pull request therefore
+# goes unlabelled, which is a cosmetic loss, and the alternative is handing a
+# writable token to code we do not trust to label it prettily.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read  # Read-only by default; the job elevates for itself.
+
+concurrency:
+  group: label-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  label:
+    name: label
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read       # Read .github/labeler.yml.
+      pull-requests: write # Apply the labels.
+    steps:
+      - uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7.0.0
+        with:
+          sync-labels: false
