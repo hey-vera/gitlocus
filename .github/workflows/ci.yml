@@ -127,9 +127,13 @@ jobs:
   # a gate that could only observe its own workflow would report a verdict on
   # part of the evidence while presenting it as the whole.
   #
-  # CI gates the machine-checkable half only. A verdict of needs_human is a
-  # success here - the outstanding approval is enforced by the branch ruleset,
-  # not by a workflow that could be edited in the pull request it governs.
+  # CI gates the machine-checkable half only, so a verdict of needs_human is a
+  # success here. Be precise about what that means today: this repository has one
+  # maintainer, required approvals in the branch ruleset are therefore zero, and
+  # nothing satisfies the policy's own `approvals: 1`. The gate reports
+  # needs_human on every pull request here and that outstanding attestation is
+  # currently enforced by nobody. It closes with a signed approval under
+  # approvals_signed_by once the signing producer lands (#8), not before.
   gate:
     name: gate
     if: github.event_name == 'pull_request'
