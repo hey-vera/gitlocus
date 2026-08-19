@@ -135,18 +135,37 @@ unattested binaries would refute itself.
 
 ## How this repository is built
 
-The CI is deliberately structured as the same three classes the spec defines.
-Deterministic checks block. Human approval is required by a branch ruleset rather
-than by a workflow — a workflow could be edited in the same pull request it
-governs.
+The CI is deliberately structured as the same three classes the spec defines, and
+the branch ruleset rather than a workflow is what enforces them — a workflow can
+be edited in the pull request it governs.
 
-No assessed producer is wired up yet: the verdict renders advisory findings and
-the format carries them, but a model reviewer arrives in Stage 1. Saying so
-matters more than the story being tidy.
+**Exactly what gates a merge here.** Twelve deterministic checks are required.
+Commits must be cryptographically signed and signed off under the DCO. History is
+linear, squash-only, and **nobody can bypass any of it** — the admin bypass was
+removed, so direct pushes to `main` are impossible for the maintainer too.
 
-GitLocus's own policy lives in [`.gitlocus/policy.yml`](.gitlocus/policy.yml) and
-runs against every pull request here. A policy engine whose authors exempt
-themselves is not evidence of anything.
+**Required approvals are zero, and that is the honest setting rather than a
+weakening.** This repository has one maintainer, and GitHub does not permit an
+author to approve their own pull request; requiring one approval would deadlock
+the repository rather than protect it, which is why every merge before
+2026-08-19 used an admin bypass and carried zero reviews. Machines gate; the DCO
+sign-off carries the human accountability. Code-owner review and one required
+approval return the day a second maintainer exists.
+
+**The gap that remains, stated rather than papered over.**
+[`.gitlocus/policy.yml`](.gitlocus/policy.yml) asks for `approvals: 1`, so the
+gate reports `needs_human` on every pull request here and nothing yet satisfies
+it. The honest closure is a signed approval under `approvals_signed_by`, which is
+already specified and implemented but cannot be populated until the signing
+producer lands ([#8](https://github.com/hey-vera/gitlocus/issues/8)). Until then
+this repository meets its own deterministic requirements and does not meet its
+own attestation requirement, and says so.
+
+No assessed producer is wired up yet either: the verdict renders advisory findings
+and the format carries them, but a model reviewer arrives in Stage 1.
+
+GitLocus's own policy runs against every pull request here. A policy engine whose
+authors exempt themselves is not evidence of anything.
 
 ## What this converges
 
