@@ -124,6 +124,20 @@ nothing can check the body before the merge is attempted.
 **Guard:** the `main` ruleset, which `just brief` asserts still carries
 `required_signatures` with no bypass actor.
 
+### `just msrv` cannot run on a host the MSRV predates
+
+The recipe installs the MSRV toolchain for the same host triple `LOCUS_CARGO`
+names, because installing it for the default host would walk straight into the
+linker trap above. Rust 1.90 shipped no `x86_64-pc-windows-gnullvm` host
+toolchain, so on Windows under MSYS this check cannot run at all.
+
+It fails rather than skips, and says where it does run — the `msrv` job on
+`ubuntu-latest`, which is a required status check. `just ci` runs it last, so a
+host that cannot run it still gets every other check.
+
+**Guard:** `justfile` — the recipe prints the constraint and the exact list of
+recipes to run instead.
+
 ### Do not stack pull requests here
 
 `delete_branch_on_merge` is on, and when a base branch is deleted GitHub marks
