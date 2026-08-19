@@ -113,6 +113,13 @@ specification repositories, so the policy requires all three.
 
 Do not open a public issue. See [SECURITY.md](SECURITY.md).
 
+## Working on this over time
+
+[`docs/CONTINUITY.md`](docs/CONTINUITY.md) records the state of the project, the
+invariants, and what is settled versus open. It is updated by the same pull
+request that changes what it describes — if your change makes something in it
+untrue, fixing it is part of the change, not follow-up.
+
 ## Code of conduct
 
 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) applies to everyone here.

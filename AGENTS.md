@@ -68,6 +68,13 @@ wrong.
    [ADR 0006](docs/adr/0006-the-gate-must-resist-what-it-gates.md) exists to stop.
    If a check fails, either fix the code or say plainly that you could not.
 
+## Picking this project up
+
+Read [`docs/CONTINUITY.md`](docs/CONTINUITY.md) first. It is the state of the
+world, the decisions you may not quietly reverse, and the standard the work is
+held to. It is versioned with the code so it cannot go stale the way a handoff
+note does — and keeping it current is part of the work.
+
 ## Before proposing a design change
 
 Read [`docs/AGENT-ERA.md`](docs/AGENT-ERA.md). It records the problems this design

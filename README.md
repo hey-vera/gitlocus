@@ -15,8 +15,11 @@ incoming work into a ranked queue with the evidence attached.
 
 It runs on top of the forge you already use. It is not a GitHub replacement.
 
-> **Status: v0.0.1, pre-release.** The spec is unstable and will break. The gate
-> works and runs on this repository's own pull requests.
+> **Status: v0.0.2, pre-release.** The spec is a draft and will break before v1.
+> The gate works and runs on this repository's own pull requests. Binaries carry
+> signed build provenance. Signature *verification* is implemented; the signing
+> *producer* is not, so a `signed_by` rule currently refuses everything — which is
+> why this repository does not yet use one.
 
 ---
 
@@ -168,6 +171,7 @@ Full list: [docs/NON-GOALS.md](docs/NON-GOALS.md).
 
 | | |
 |---|---|
+| [docs/CONTINUITY.md](docs/CONTINUITY.md) | **Start here if you are picking this up** — state, invariants, what is settled, what is open |
 | [spec/](spec/) | The normative model and JSON Schemas |
 | [docs/adr/](docs/adr/) | Why things are the way they are |
 | [docs/AGENT-ERA.md](docs/AGENT-ERA.md) | The problems this is an answer to — swarms, harnesses, and models that do not exist yet — and which remain unsolved |
