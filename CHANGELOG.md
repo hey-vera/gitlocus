@@ -10,6 +10,8 @@ release until v1. That is stated in the spec itself and it is not a formality.
 
 ## [Unreleased]
 
+## [0.0.3] — 2026-08-19
+
 ### Added
 
 - **A contribution is governed by the policy at its base revision as well as the
@@ -111,7 +113,8 @@ and a gate that runs on this repository's own pull requests.
 - ADRs 0001–0010. ([#3])
 - CI, supply-chain auditing, OpenSSF Scorecard and licence badges. ([#1])
 
-[Unreleased]: https://github.com/hey-vera/gitlocus/compare/v0.0.2...HEAD
+[Unreleased]: https://github.com/hey-vera/gitlocus/compare/v0.0.3...HEAD
+[0.0.3]: https://github.com/hey-vera/gitlocus/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/hey-vera/gitlocus/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/hey-vera/gitlocus/releases/tag/v0.0.1
 [#1]: https://github.com/hey-vera/gitlocus/pull/1
