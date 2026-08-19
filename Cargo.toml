@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/gitlocus-core", "crates/gitlocus-cli"]
+members = ["crates/gitlocus-core", "crates/gitlocus-cli", "crates/locusd"]
 
 [workspace.package]
 version = "0.0.3"
@@ -24,6 +24,10 @@ jsonschema = { version = "0.49", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_norway = "0.9"
+# A five-crate dependency tree, all MIT OR Apache-2.0. A framework with an async
+# runtime is the obvious alternative and is not obviously better on two cores
+# with a strict licence allow-list; revisit when there is traffic to justify it.
+tiny_http = "0.12"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
