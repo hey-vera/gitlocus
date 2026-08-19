@@ -453,6 +453,77 @@ fn contribution_fails_loudly_on_a_revision_that_does_not_exist() {
 }
 
 #[test]
+fn contribution_defaults_the_actor_to_the_head_commit_author() {
+    // The path taken when --actor is omitted, which is the path an adopter
+    // following the README takes first.
+    let dir = repo_with_two_commits("contribution-default-actor");
+
+    let out = locus()
+        .current_dir(dir.path())
+        .args([
+            "contribution",
+            "--base",
+            "HEAD~1",
+            "--head",
+            "HEAD",
+            "--repository",
+            "github.com/acme/repo",
+        ])
+        .output()
+        .expect("running locus");
+
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(
+        stdout_of(&out).contains("test@example.com"),
+        "the actor must come from the commit, not from nowhere: {}",
+        stdout_of(&out)
+    );
+}
+
+#[test]
+fn contribution_derives_the_repository_from_the_remote() {
+    // An identifier invented rather than derived would give two clones of one
+    // repository two identities, and the identifier is part of a contribution's
+    // identity.
+    let dir = repo_with_two_commits("contribution-default-repo");
+    let status = Command::new("git")
+        .args(["remote", "add", "origin", "git@github.com:acme/widgets.git"])
+        .current_dir(dir.path())
+        .output()
+        .expect("running git");
+    assert!(status.status.success());
+
+    let out = locus()
+        .current_dir(dir.path())
+        .args([
+            "contribution",
+            "--base",
+            "HEAD~1",
+            "--head",
+            "HEAD",
+            "--actor",
+            "someone",
+        ])
+        .output()
+        .expect("running locus");
+
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(
+        stdout_of(&out).contains("github.com/acme/widgets"),
+        "an scp-style remote must normalise to host/owner/name: {}",
+        stdout_of(&out)
+    );
+}
+
+#[test]
 fn contribution_records_an_agent_and_its_operator_as_a_pair() {
     let dir = repo_with_two_commits("contribution-pair");
 
