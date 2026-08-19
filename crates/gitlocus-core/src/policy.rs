@@ -1056,7 +1056,29 @@ rules:
                 &[declares(claim.clone())],
             );
             assert_eq!(v.decision, Decision::Satisfied, "{claim:?}: {:?}", v.unmet);
+            // Authorship counts toward the ranking like any other requirement.
+            // Without this the decision is right and the confidence is wrong,
+            // which is invisible until a queue sorts by it — and a queue sorted
+            // by a number nobody checks is the failure ranking exists to avoid.
+            assert!(
+                (v.rank.confidence - 1.0).abs() < f64::EPSILON,
+                "{claim:?}: confidence {}",
+                v.rank.confidence
+            );
         }
+    }
+
+    #[test]
+    fn an_unmet_authorship_requirement_lowers_confidence_rather_than_being_free() {
+        let v = human_authorship().evaluate(
+            &contribution(&["src/main.rs"], TrustTier::Contributor),
+            &[declares(AuthorshipClaim::Generated)],
+        );
+        assert!(
+            v.rank.confidence.abs() < f64::EPSILON,
+            "confidence {}",
+            v.rank.confidence
+        );
     }
 
     #[test]
