@@ -75,11 +75,13 @@ rather than only on a new one, and it is why no global mutation score is
 required or recorded — a score would be a number to farm, which
 [the specification already refuses](../../spec/README.md) for standing.
 
-The check is scoped to `gitlocus-core` for now. That is not the same kind of
-exclusion: the CLI has *no* behavioural test harness at all, so a contributor
-touching it would have to build one from scratch rather than add a test beside an
-existing one. The scope is written down here and in the workflow rather than
-quietly configured, and removing it is [#34](https://github.com/hey-vera/gitlocus/issues/34).
+The check was scoped to `gitlocus-core` at first, because the CLI had no
+behavioural test harness at all and a contributor touching it would have been
+asked to build one from scratch rather than add a test beside an existing one.
+That scope was written down here and in the workflow rather than quietly
+configured, and [#34](https://github.com/hey-vera/gitlocus/issues/34) removed the
+need for it: both crates now report zero survivors and the check covers the whole
+workspace.
 
 ## What it found immediately
 
