@@ -47,9 +47,13 @@ check: build tests lint fmt
 # Everything runnable off a GitHub runner. `mutants` and `gate` need a base
 # revision and are excluded; `analyze (rust)` and `analyze (actions)` are CodeQL
 # and run only on GitHub's analysis infrastructure.
+#
+# `msrv` runs last because it is the one recipe a host can legitimately be unable
+# to run - the declared MSRV may predate a toolchain for the host triple. Putting
+# it last means such a host still gets every other check.
 
 # Everything runnable off a GitHub runner.
-ci: build tests lint fmt msrv platforms schema-validation workflow-audit cargo-deny licence-headers
+ci: build tests lint fmt platforms schema-validation workflow-audit cargo-deny licence-headers msrv
 
 # --- required checks, one recipe per status-check context ---------------------
 
@@ -89,8 +93,28 @@ msrv:
       exit 1
     fi
     echo "manifest declares rust-version = $msrv"
-    rustup toolchain install "$msrv" --profile minimal --no-self-update
-    cargo "+$msrv" build --locked --all-targets
+
+    # The MSRV toolchain has to be installed for the same host triple the rest of
+    # the recipes use. Otherwise this is the one check that walks straight into
+    # the trap LEARNINGS.md documents: on Windows under MSYS the default host
+    # resolves to an MSVC target where MSYS `link` shadows MSVC's linker.
+    # LOCUS_CARGO already names the toolchain that works; take its triple.
+    triple=$(printf '%s' "{{ cargo }}" | sed -nE 's/.*[+][a-z0-9.]+-(.+)$/\1/p')
+    toolchain="$msrv${triple:+-$triple}"
+
+    if ! rustup toolchain install "$toolchain" --profile minimal --no-self-update; then
+      echo "::error::no $msrv toolchain for $triple"
+      echo
+      echo "The declared MSRV predates a host toolchain for the triple LOCUS_CARGO"
+      echo "names, so this check cannot run on this machine. It is not skipped:"
+      echo "the msrv job on ubuntu-latest runs this same recipe on every pull"
+      echo "request, and it is a required status check."
+      echo
+      echo "To run the rest: just build tests lint fmt platforms schema-validation \\"
+      echo "                      workflow-audit cargo-deny licence-headers"
+      exit 1
+    fi
+    cargo "+$toolchain" build --locked --all-targets
 
 # On a runner this is one leg of a three-target matrix that CI collapses into a
 # single check name. Locally it is the native target, which is the leg you can
