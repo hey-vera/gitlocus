@@ -10,7 +10,7 @@ which part of the context has changed.
 
 | # | decision | status |
 |---|---|---|
-| [0001](0001-evidence-not-a-forge.md) | Build the evidence layer, not a forge | accepted |
+| [0001](0001-evidence-not-a-forge.md) | Build the evidence layer, not a forge | superseded by 0011 |
 | [0002](0002-no-ai-authorship-detection.md) | No AI authorship detection | accepted |
 | [0003](0003-evidence-classes.md) | Evidence classes are enforced in the type system | accepted |
 | [0004](0004-rust-core-shared-by-cli-and-server.md) | One Rust core, shared by the CLI and the server | accepted |
@@ -20,20 +20,25 @@ which part of the context has changed.
 | [0008](0008-authorship-is-declared-not-detected.md) | Authorship is declared, not detected | accepted |
 | [0009](0009-trust-is-earned-from-merged-history.md) | Trust is earned from merged history, not asserted | accepted |
 | [0010](0010-an-attestation-needs-someone-to-attest.md) | An attestation needs someone to attest | accepted |
+| [0011](0011-the-kernel-of-a-git-platform.md) | The kernel of a git platform | accepted |
+| [0012](0012-the-harness-is-the-integration-surface.md) | The harness is the integration surface | accepted |
 
 ## Reading order
 
-New here? [0001](0001-evidence-not-a-forge.md) says what this project is,
-[0003](0003-evidence-classes.md) says what makes it work, and
+New here? [0011](0011-the-kernel-of-a-git-platform.md) says what this project is
+building and why the order is what it is, [0003](0003-evidence-classes.md) says
+what makes it work, and
 [0005](0005-evidence-classes-survive-better-models.md) says why that will still
 be true in five years.
 
-[`../AGENT-ERA.md`](../AGENT-ERA.md) collects the problems these decisions are
-answers to, including the ones still unsolved.
+These records are also where the problems being designed for are written down —
+swarms, harnesses, and capability that does not exist yet. A proposal that
+re-solves a settled problem, or quietly reintroduces one, is the main way a
+project like this drifts.
 
 ## The load-bearing ones
 
-Two records are not ordinary decisions. Changing them changes what this project
+Three pairs are not ordinary decisions. Changing them changes what this project
 is:
 
 - **[0003](0003-evidence-classes.md) + [0005](0005-evidence-classes-survive-better-models.md)** —
@@ -45,6 +50,10 @@ is:
   we never infer authorship from source text; we record what a named party
   declares. Read together, or 0008 looks like a reversal of 0002 when it is the
   opposite.
+- **[0011](0011-the-kernel-of-a-git-platform.md) + [0012](0012-the-harness-is-the-integration-surface.md)** —
+  what is being built and where it plugs in. 0011 supersedes 0001 by keeping its
+  finding and replacing its framing; read 0001 only for the reasoning it
+  preserves.
 
 ## Writing a new one
 

@@ -1,7 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 #
-# Ownership. Combined with the branch ruleset's path restrictions, this is what
-# stops a contribution weakening the rules that govern it in the same change.
+# Ownership, used for review routing and attribution.
+#
+# This file does not by itself stop a contribution weakening the rules that
+# govern it. That is enforced by .gitlocus/policy.yml, which holds the privileged
+# paths listed below to maintainer standing. The branch ruleset has no path
+# restrictions, and a comment here once said it did.
 
 # Everything, by default.
 *                       @1xmint
