@@ -12,6 +12,37 @@ release until v1. That is stated in the spec itself and it is not a formality.
 
 ### Added
 
+- **One definition of every check.** A `justfile` defines each check once, with a
+  recipe named for the status-check context it satisfies, and the workflows
+  invoke those recipes rather than restating the commands.
+  `.github/required-checks.txt` records the mapping, including which checks
+  cannot run in full outside GitHub and why. ADR 0017.
+- **The documentation is under test.** `crates/repo-conformance` asserts that
+  relative links resolve, that the paths this project's own documents name
+  exist, that every required check has a job and a recipe, that every decision
+  record states what it costs and that supersessions link both ways, that one
+  version string means one version, that every learning names its guard, and
+  that a crate meant for crates.io carries what crates.io renders.
+- **`LEARNINGS.md`**, carrying the record of claims this project shipped
+  stronger than the implementation, and the traps that cost real time. Every
+  entry names the check that would catch a recurrence, an issue, or an explicit
+  `none` with the reason.
+- **`just brief`**, which prints where the project is — issues by milestone, the
+  latest release, whether the service is answering, and whether the settings the
+  record depends on are still set. It reads GitHub live and is never committed,
+  so it cannot go stale.
+- **Properties for the invariants that are quantified over all inputs.** Seven in
+  `gitlocus-core` and four in `locusd`, including the totality contracts for the
+  vouch and policy parsers and for the public HTTP surface. ADR 0018.
+- **An attested bill of materials on every release.** SPDX generated from the
+  checkout and attested under the same workflow identity as the build
+  provenance, with both bundles covered by `SHA256SUMS`.
+- **Documentation that builds.** `just doc` denies broken intra-doc links, and
+  `just lint` depends on it. Nothing built the docs at all before.
+- **Both published crates are publishable** — README, keywords, categories and
+  docs.rs metadata, verified with `cargo publish --dry-run`.
+- **Immutable releases are enabled**, from the next tag onwards. The claim that
+  they were had stood since the first release.
 - **Authorship declarations.** An `attested` Evidence record may carry a claim of
   `human`, `directed_agent`, `generated`, or `derived` with its source, and a
   policy may say `authorship: [human, directed_agent]` to refuse generated work.
@@ -24,6 +55,22 @@ release until v1. That is stated in the spec itself and it is not a formality.
 
 ### Fixed
 
+- **A verdict depended on the order of the evidence array.** The `advisory` list
+  was emitted in arrival order, so two `assessed` records arriving in a different
+  order produced different verdict bytes for the same inputs. `decision` was
+  never affected, but the verdict was not byte-identical — which is what
+  specification §6 clause 5 requires and what makes a verdict
+  content-addressable. `advisory` is now ordered and deduplicated, and §3.5 says
+  so. Found by a property test on its first run; the conformance test covering
+  clause 5 had used a single `assessed` record, where the order cannot vary.
+- **`AGENTS.md` claimed its four documented commands were the ones CI ran.** CI
+  passed `--locked` on all four and ran nine more checks besides, so a change
+  could be green locally and red on eleven required checks.
+- **`cargo test --doc` reported `running 0 tests`** under a comment saying it
+  kept the model's documentation examples honest. Every fenced block in a doc
+  comment is `yaml` or `text`, which rustdoc does not compile. The examples are
+  now complete policies checked by a test, and the README's Rust example is a
+  real doctest.
 - The evidence collector read a check run's `status` before its `conclusion`.
   GitHub reports `in_progress` alongside `conclusion: success` and holds it for
   minutes, so a check that had *passed* was recorded `inconclusive` and blocked a
