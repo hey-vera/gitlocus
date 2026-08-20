@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 224879b1b1f99acdad9d3bea0b9962fba7cf1075862e97bce91aea0cb704255e # shrinks to contribution = Contribution { repository: "github.com/acme/repo", base_digest: "aaaa", head_digest: "cccc", actor: Actor { id: "someone", kind: Human, tier: Contributor, key_binding: None }, changed_paths: [], forge_ref: None }, evidence = [Evidence { kind: "build", class: Assessed, outcome: Pass, subject_digest: "cccc", produced_by: "ci", produced_at: "2026-08-19T00:00:00Z", source_uri: None, summary: None, authorship: None, signer: None }, Evidence { kind: "build", class: Assessed, outcome: Fail, subject_digest: "cccc", produced_by: "ci", produced_at: "2026-08-19T00:00:00Z", source_uri: None, summary: None, authorship: None, signer: None }], shuffle = [5, 1, 1, 1, 1, 1, 1, 5, 1, 1, 1, 2]

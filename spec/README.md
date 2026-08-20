@@ -252,6 +252,13 @@ ordering of the evidence array, or ambient state may affect it.
 Tier insufficiency and unmet checks both produce `blocked` because neither
 warrants human attention yet — which is the entire point.
 
+`advisory` MUST be ordered deterministically and MUST NOT repeat an entry.
+Byte-identical output requires an order that does not depend on the input's, and
+`advisory` is the one field built by walking the evidence array; a verifier that
+emits it in arrival order makes the verdict depend on that order and so fails
+clause 5. Sorting the rendered entries satisfies this. Nothing in `advisory`
+binds, so the order carries no meaning and is chosen only to be stable.
+
 ## 4. Ranking
 
 A Verdict carries ranking signals so a queue can be ordered by what a maintainer

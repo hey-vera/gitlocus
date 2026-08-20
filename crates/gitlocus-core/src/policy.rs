@@ -449,10 +449,22 @@ impl CompiledPolicy {
         )
         .unwrap_or(u32::MAX);
 
-        let advisory = evidence
+        // Sorted, not in input order. A verdict is meant to be byte-identical for
+        // identical inputs, and two assessed records arriving in a different
+        // order are the same input - so leaving this in arrival order made the
+        // verdict depend on the order of the evidence array, which invariant 4
+        // forbids and which the caching argument rests on. It binds nothing
+        // either way; a property test found it, because the example test that
+        // covered clause 5 used a single assessed record and could not.
+        //
+        // A BTreeSet rather than a sorted Vec: two identical assessed records say
+        // the same thing twice, and a verdict repeating it is noise.
+        let advisory: Vec<String> = evidence
             .iter()
             .filter(|e| e.class == EvidenceClass::Assessed && e.subject_digest == digest)
             .map(|e| format!("{}: {:?}", e.kind, e.outcome))
+            .collect::<BTreeSet<_>>()
+            .into_iter()
             .collect();
 
         let tier_satisfied = contribution.actor.tier.satisfies(tier_required);
