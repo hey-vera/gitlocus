@@ -218,10 +218,15 @@ fn clause_5_evidence_order_does_not_change_the_verdict() {
     let policy = || Policy::from_yaml(&src).unwrap().compile().unwrap();
     let contribution = sample_contribution();
 
+    // Two assessed records, not one. With a single assessed record the advisory
+    // list has a single element, so reversing the input cannot change its order -
+    // which is why this test passed for as long as the verdict did depend on that
+    // order. A property test found it; see tests/properties.rs.
     let forward = [
         evidence("build", EvidenceClass::Deterministic, Outcome::Pass),
         evidence("tests", EvidenceClass::Deterministic, Outcome::Pass),
         evidence("lint", EvidenceClass::Assessed, Outcome::Fail),
+        evidence("review", EvidenceClass::Assessed, Outcome::Pass),
     ];
     let mut reversed = forward.clone();
     reversed.reverse();

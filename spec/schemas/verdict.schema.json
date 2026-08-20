@@ -88,7 +88,7 @@
       "items": {
         "type": "string"
       },
-      "description": "Assessed findings, surfaced for the reader and binding on nothing."
+      "description": "Assessed findings, surfaced for the reader and binding on nothing. Ordered deterministically and without repeats, so that the verdict is byte-identical for identical inputs regardless of the order the evidence arrived in."
     },
     "rank": {
       "type": "object",

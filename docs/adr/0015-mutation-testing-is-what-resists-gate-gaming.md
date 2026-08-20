@@ -4,6 +4,7 @@
 - **Status:** accepted
 - **Date:** 2026-08-19
 - **Amends:** [0006](0006-the-gate-must-resist-what-it-gates.md)
+- **Reinforced by:** [0018](0018-quantified-claims-are-tested-as-properties.md)
 
 ## Context
 

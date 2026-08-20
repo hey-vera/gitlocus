@@ -27,6 +27,7 @@ which part of the context has changed.
 | [0015](0015-mutation-testing-is-what-resists-gate-gaming.md) | Mutation testing is what resists gate gaming | accepted |
 | [0016](0016-locusd-lives-here-under-agpl.md) | locusd lives in this repository, under AGPL-3.0 | accepted |
 | [0017](0017-the-foundation-layer-is-executable.md) | The foundation layer is executable | accepted |
+| [0018](0018-quantified-claims-are-tested-as-properties.md) | A claim about every input is tested over every input | accepted |
 
 ## Reading order
 

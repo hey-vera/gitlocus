@@ -16,6 +16,7 @@ serde_norway.workspace = true
 
 [dev-dependencies]
 jsonschema.workspace = true
+proptest = { version = "1.11.0", default-features = false, features = ["std"] }
 
 [lints]
 workspace = true
