@@ -569,6 +569,7 @@ name = "locusd"
 version = "0.0.3"
 dependencies = [
  "gitlocus-core",
+ "proptest",
  "serde",
  "serde_json",
  "serde_norway",
