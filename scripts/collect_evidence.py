@@ -41,10 +41,18 @@ FAILING = {"failure"}
 # unmet, and it must never be read as a pass.
 #
 # `skipped` was previously in PASSING. It was harmless only because nothing in
-# this repository is ever skipped, and it would have failed silently for the
-# first adopter with a conditional job: a check that did not run would have
-# satisfied the requirement it was meant to prove. That is invariant 3 in
-# AGENTS.md, violated in the product rather than in the configuration.
+# this repository is ever skipped, so the fix went in unexercised.
+#
+# It has since been exercised. `1xmint/notelocus` gates a job behind a detect
+# job, which is the ordinary way a repository avoids running a check it does not
+# need, and on 2026-08-20 that produced a genuinely skipped check run for the
+# first time. The gate reported:
+#
+#     inconclusive fixtures
+#
+# which is correct: skipped is not a pass, and inconclusive is not a pass either.
+# Recorded here because "handled in code, never seen" and "seen, and it worked"
+# are different claims and only one of them was true before that run.
 
 
 def relevant(runs):
