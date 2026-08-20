@@ -40,4 +40,5 @@ workspace = true
 # nothing else.
 [dev-dependencies]
 gitlocus-core.workspace = true
+proptest = { version = "1.11.0", default-features = false, features = ["std"] }
 serde_json.workspace = true
