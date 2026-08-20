@@ -230,6 +230,36 @@ release notes, and the SBOM one carries
 **Guard:** `.github/workflows/release.yml` — the step summary prints both
 commands, each with the flags it needs, so nobody has to derive this.
 
+### A default that must match the caller cannot be a default
+
+`action.yml` shipped `exclude: ^(gitlocus|gate|arm|Scorecard|analyze)` - this
+repository's own job names - while the input's own description says the regex
+must match the job running the action, or that job waits for itself.
+
+The first adopter named their job `notes-gate` and every pull request took
+**5m19s** where the other checks took 4 to 8 seconds: twenty retries at fifteen
+seconds, then a verdict computed over an evidence set still containing its own
+in-progress check. The verdict was correct; the five minutes were not.
+
+The general shape is worth more than the instance: a default whose correctness
+depends on something only the caller knows is not a default, it is a required
+argument with a misleading fallback.
+
+**Guard:** https://github.com/hey-vera/gitlocus/issues/81
+
+### A path-filtered workflow produces no check run, not a skipped one
+
+Found while trying to *make* a skipped check to test the handling for it. A
+workflow-level `paths:` filter that does not match means the check is simply
+absent from the check-runs API. An evidence collector sees missing, not skipped,
+and those are different: missing is unmet, skipped is inconclusive.
+
+A `skipped` conclusion needs a job-level `if:` that evaluates false - the detect
+job pattern. Worth knowing before designing a test around either.
+
+**Guard:** none - a fact about GitHub rather than about this project, and
+`scripts/collect_evidence.py` now records where the distinction was established.
+
 ### Do not stack pull requests here
 
 `delete_branch_on_merge` is on, and when a base branch is deleted GitHub marks
