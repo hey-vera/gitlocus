@@ -147,6 +147,17 @@ to notice would have been a reader on docs.rs.
 **Guard:** `just doc`, which denies `rustdoc::broken_intra_doc_links` and is run
 by `just lint`, a required check.
 
+### The release workflow is the highest-privilege thing here
+
+`publish` holds `contents: write`, `id-token: write` and `attestations: write`,
+and it is where an unpinned action or a careless `run:` costs the most. Anything
+added to it — an SBOM generator, a signer — is code with a Sigstore certificate
+in reach.
+
+**Guard:** `just structural-rules` requires every action reference to be a full
+40-character SHA, and the `release` environment has a required reviewer, so a
+tag push cannot reach any of it unattended.
+
 ### Do not stack pull requests here
 
 `delete_branch_on_merge` is on, and when a base branch is deleted GitHub marks

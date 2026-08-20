@@ -153,13 +153,39 @@ jobs:
         with:
           subject-path: dist/locus-*
 
+      # Provenance says who built these binaries and from what revision. It says
+      # nothing about what is inside them, and Cargo.lock names 134 packages.
+      # The bill of materials is the other half of that question.
+      - name: Generate the bill of materials
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          path: .
+          format: spdx-json
+          artifact-name: locus.spdx.json
+          output-file: dist/locus.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      # Attested by the same workflow identity as the provenance above, so a
+      # reader can establish that this document came from this release rather
+      # than from a file someone attached. An unattested SBOM is a claim about a
+      # supply chain made by an unauthenticated party, which is the thing this
+      # project exists to refuse.
+      - name: Attest the bill of materials
+        id: attest-sbom
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-path: dist/locus-*
+          sbom-path: dist/locus.spdx.json
+
       # Without the bundle attached, verifying a download means asking GitHub's
       # attestation API about an artifact GitHub also hosts — which is a weaker
       # property than it looks, and unavailable on a network that cannot reach
       # it. Shipping the bundle makes verification offline and independent.
-      - name: Attach the attestation bundle
+      - name: Attach the attestation bundles
         env:
           BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+          SBOM_BUNDLE: ${{ steps.attest-sbom.outputs.bundle-path }}
         run: |
           set -euo pipefail
           if [ ! -s "$BUNDLE" ]; then
@@ -167,11 +193,16 @@ jobs:
             exit 1
           fi
           cp "$BUNDLE" dist/locus.intoto.jsonl
-          # SHA256SUMS was written before the bundle existed. Rewrite it over
+          if [ ! -s "$SBOM_BUNDLE" ]; then
+            echo "::error::the SBOM attest step produced no bundle at $SBOM_BUNDLE"
+            exit 1
+          fi
+          cp "$SBOM_BUNDLE" dist/locus.sbom.intoto.jsonl
+          # SHA256SUMS was written before the bundles existed. Rewrite it over
           # exactly what is about to be published, naming the files rather than
           # globbing, so the checksum file can never cover itself.
           cd dist
-          sha256sum locus-* locus.intoto.jsonl > SHA256SUMS
+          sha256sum locus-* locus.intoto.jsonl locus.spdx.json locus.sbom.intoto.jsonl > SHA256SUMS
           cat SHA256SUMS
 
       - name: Publish release
@@ -194,5 +225,9 @@ jobs:
             echo "Or offline, against the bundle published with the release:"
             echo '```'
             echo "gh attestation verify locus-<target> --bundle locus.intoto.jsonl --repo $REPO"
+            echo '```'
+            echo "The bill of materials is locus.spdx.json, attested separately:"
+            echo '```'
+            echo "gh attestation verify locus-<target> --bundle locus.sbom.intoto.jsonl --repo $REPO --predicate-type https://spdx.dev/Document/v2.3"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
