@@ -766,6 +766,18 @@ fn any_source_contains(needle: &str) -> bool {
 // second implementation here would be a second thing to keep correct, not a
 // second guarantee.
 //
+// The `gitlocus-core` version pin in `[workspace.dependencies]`: cargo already
+// refuses to build when it disagrees with the workspace version, in either
+// direction, and says so more usefully than a test here could —
+//
+//     error: failed to select a version for the requirement `gitlocus-core = "^0.0.3"`
+//     candidate versions found which didn't match: 0.0.4
+//
+// This was written as a test during the 0.0.4 bump, on the assumption that it
+// was the one copy of the version nothing checked. It is not. A check that
+// duplicates a guarantee the compiler already gives is a second thing to keep
+// correct rather than a second guarantee.
+//
 // Anchors inside links: see `every_relative_link_in_every_markdown_file_resolves`.
 //
 // Whether the ruleset still requires exactly the checks in

@@ -4,7 +4,7 @@
 # that wants a verdict should not have to install a Rust toolchain, write the
 # contribution document by hand, or know how evidence is collected.
 #
-#   - uses: hey-vera/gitlocus@v0.0.3
+#   - uses: hey-vera/gitlocus@v0.0.4
 #     with:
 #       token: ${{ secrets.GITHUB_TOKEN }}
 #
@@ -34,7 +34,7 @@ inputs:
       action shipped with, so the evaluator does not change under a caller who
       pinned the action.
     required: false
-    default: v0.0.3
+    default: v0.0.4
   vouched-file:
     description: Trust file to consult, in the format used by mitchellh/vouch.
     required: false

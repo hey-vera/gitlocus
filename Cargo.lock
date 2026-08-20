@@ -292,7 +292,7 @@ dependencies = [
 
 [[package]]
 name = "gitlocus-cli"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "anyhow",
  "clap",
@@ -303,7 +303,7 @@ dependencies = [
 
 [[package]]
 name = "gitlocus-core"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "globset",
  "jsonschema",
@@ -566,7 +566,7 @@ dependencies = [
 
 [[package]]
 name = "locusd"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "gitlocus-core",
  "proptest",
@@ -891,7 +891,7 @@ checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
 name = "repo-conformance"
-version = "0.0.3"
+version = "0.0.4"
 
 [[package]]
 name = "rustversion"
