@@ -354,6 +354,17 @@ brief:
     # It needs a token, which is why it is not a required check.
     settings_fail=0
 
+    # The repository API reports "dependabot_security_updates: enabled" whether or
+    # not the dependency graph it depends on is on, so the only honest check is to
+    # ask the endpoint that needs it. It answered 403 for two days while the
+    # settings page said everything was fine.
+    if gh api "repos/$repo/dependency-graph/compare/HEAD~1...HEAD" >/dev/null 2>&1; then
+      echo "  dependency graph: answering"
+    else
+      echo "::error::dependency-graph/compare is not answering; dependency review cannot run"
+      settings_fail=1
+    fi
+
     if [ "$(gh api "repos/$repo/immutable-releases" --jq '.enabled')" = "true" ]; then
       echo "  immutable releases: enabled"
     else
