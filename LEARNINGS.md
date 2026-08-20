@@ -160,6 +160,38 @@ in reach.
 40-character SHA, and the `release` environment has a required reviewer, so a
 tag push cannot reach any of it unattended.
 
+### Trusted Publishing cannot bootstrap itself
+
+It can only be configured on a crate that already exists and is owned, so the
+very first `cargo publish` of each crate is manual, with a token, from a
+maintainer's machine. Only afterwards can the repository, workflow and
+environment be registered on crates.io and token publishing be disabled.
+
+Neither `gitlocus-core` nor `gitlocus-cli` has been published, so this is still
+ahead of us rather than behind.
+
+**Guard:** `.github/workflows/release.yml` — the `publish-crates` job detects
+that Trusted Publishing is not configured, says so, and exits 0 rather than
+failing a release that otherwise succeeded.
+
+### Asking whether a version is published is harder than it looks
+
+Two obvious checks are both wrong:
+
+- `cargo info <crate>@<version>` run inside this workspace resolves to the local
+  path dependency and reports the crate as present when it has never been
+  published at all. Verified: `cargo info gitlocus-core@0.0.3` prints
+  `version: 0.0.3 (from .\crates\gitlocus-core)`.
+- `cargo search <crate>` returns only the latest version, so re-running an older
+  tag's release would try to republish a version that is already there.
+
+Ask the registry: `https://crates.io/api/v1/crates/<crate>/<version>` is 200 or
+404. It refuses requests without a `User-Agent` with a 403 that reads like a
+permissions problem and is not.
+
+**Guard:** `.github/workflows/release.yml` — `on_registry` does exactly that, and
+the comment above it names both wrong answers.
+
 ### Do not stack pull requests here
 
 `delete_branch_on_merge` is on, and when a base branch is deleted GitHub marks
