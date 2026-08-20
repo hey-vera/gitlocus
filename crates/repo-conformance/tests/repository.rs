@@ -537,6 +537,57 @@ fn every_version_string_matches_the_workspace_version() {
     assert!(wrong.is_empty(), "version drift:\n{}", wrong.join("\n"));
 }
 
+// --- publishable ---------------------------------------------------------------
+
+/// Two crates in this workspace carry no `publish = false`, which means they are
+/// meant to go to crates.io. Neither was ready: no `readme`, no `keywords`, no
+/// `categories`, and no README at all — so `gitlocus-core` would have rendered
+/// as a title, one line, and nothing else, for a crate whose entire adoption
+/// story is "implement this model".
+///
+/// This matters more here than it usually would. This project has already burned
+/// two crate names — `locus-core` and `locus-cli` were both taken, which is why
+/// the crates are `gitlocus-*`, and it is a row in LEARNINGS.md. An unpublished
+/// name is not a reserved one.
+#[test]
+fn every_published_crate_carries_what_cratesio_renders() {
+    let mut problems = Vec::new();
+
+    for crate_dir in ["gitlocus-core", "gitlocus-cli"] {
+        let manifest = read(&format!("crates/{crate_dir}/Cargo.toml"));
+        if manifest.contains("publish = false") {
+            // Not published, so none of this applies. `repo-conformance` and
+            // `locusd` are in this position.
+            continue;
+        }
+        for key in [
+            "description",
+            "readme",
+            "keywords",
+            "categories",
+            "license",
+            "repository",
+            "homepage",
+        ] {
+            if !manifest.contains(&format!("{key} =")) && !manifest.contains(&format!("{key}.")) {
+                problems.push(format!("{crate_dir}: no {key}"));
+            }
+        }
+        if !root()
+            .join(format!("crates/{crate_dir}/README.md"))
+            .exists()
+        {
+            problems.push(format!("{crate_dir}: names a readme it does not have"));
+        }
+    }
+
+    assert!(
+        problems.is_empty(),
+        "crates meant for crates.io:\n{}",
+        problems.join("\n")
+    );
+}
+
 // --- learnings carry a guard ---------------------------------------------------
 
 /// LEARNINGS.md says a learning without a guard is a note, and notes decay into

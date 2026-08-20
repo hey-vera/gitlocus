@@ -61,11 +61,12 @@ ci: build tests lint fmt platforms schema-validation workflow-audit cargo-deny l
 build:
     {{ cargo }} build --all-targets --locked
 
-# `--doc` currently runs zero tests and is kept so that the first real doctest
-# is not silently skipped. What keeps the documentation's examples honest is
-# `every_yaml_example_in_the_documentation_is_a_valid_policy`, because those
-# examples are YAML and rustdoc compiles neither yaml nor text blocks - the
-# mechanism the old comment here claimed, and did not have.
+# `--doc` runs the example in gitlocus-core's README, which is compiled under
+# `cfg(doctest)` so that the first thing a reader on crates.io sees is under
+# test. The YAML examples in the doc comments are covered by
+# `every_yaml_example_in_the_documentation_is_a_valid_policy` instead, because
+# rustdoc compiles neither yaml nor text blocks - the mechanism this step was
+# once claimed to provide and did not.
 
 # The test suite, the doctests, and the evidence-collector tests.
 tests:
@@ -294,6 +295,20 @@ dco base="origin/main" head="HEAD":
       exit 1
     fi
     echo "all commits signed off"
+
+# Would these crates go to crates.io if asked? gitlocus-cli's dry run fails until
+# gitlocus-core is actually published, because the index has no version to
+# resolve against - that is the publish order, not a fault, and it is why this is
+# a recipe rather than a check.
+
+# Package both published crates as crates.io would receive them.
+publish-dry-run:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{ cargo }} publish --dry-run -p gitlocus-core --locked
+    echo
+    echo "gitlocus-cli cannot be dry-run until gitlocus-core is on the index."
+    echo "Publish order is core, then cli."
 
 # --- orientation --------------------------------------------------------------
 
