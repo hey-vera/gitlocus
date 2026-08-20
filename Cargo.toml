@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/gitlocus-core", "crates/gitlocus-cli", "crates/locusd", "crates/repo-conformance"]
 
 [workspace.package]
-version = "0.0.3"
+version = "0.0.4"
 edition = "2024"
 rust-version = "1.90"
 license = "Apache-2.0"
@@ -15,7 +15,7 @@ authors = ["The GitLocus Authors"]
 # The one crate in this workspace that another depends on. Its version is pinned
 # rather than left to the path, so a published gitlocus-cli cannot resolve to a
 # core it was never built against.
-gitlocus-core = { path = "crates/gitlocus-core", version = "0.0.3" }
+gitlocus-core = { path = "crates/gitlocus-core", version = "0.0.4" }
 
 anyhow = "1.0"
 clap = { version = "4.6", features = ["derive"] }

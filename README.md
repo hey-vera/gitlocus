@@ -17,7 +17,7 @@ function of the two — reproducible by anyone, on any host, offline.
 It runs on top of the forge you use today. It is the kernel of a git platform,
 and that is where it is going.
 
-> **Status: v0.0.3, pre-release.** The spec is a draft and will break before v1.
+> **Status: v0.0.4, pre-release.** The spec is a draft and will break before v1.
 > The gate runs on this repository's own pull requests, and a contribution cannot
 > influence how it is judged: the policy and the evaluator both come from the base
 > revision. Binaries carry signed build provenance and the bundle to verify it
@@ -151,7 +151,7 @@ pull request would be ceremony rather than evidence.
 Five lines. No Rust toolchain, no contribution document written by hand.
 
 ```yaml
-- uses: hey-vera/gitlocus@v0.0.3
+- uses: hey-vera/gitlocus@v0.0.4
   with:
     token: ${{ secrets.GITHUB_TOKEN }}
 ```
