@@ -43,3 +43,11 @@ pub use evidence::{Evidence, EvidenceClass, Outcome};
 pub use policy::Policy;
 pub use verdict::{Decision, Verdict};
 pub use vouch::{VouchList, VouchStatus};
+
+// The README is the first thing a reader on crates.io sees, and its example was
+// not compiled by anything - the same gap `cargo test --doc` had before #65.
+// Compiling it under `cfg(doctest)` puts it under test without duplicating the
+// crate documentation above.
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+struct ReadmeExamples;

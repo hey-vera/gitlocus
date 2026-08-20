@@ -6,7 +6,17 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 authors.workspace = true
+readme = "README.md"
+keywords = ["provenance", "policy", "attestation", "supply-chain", "slsa"]
+categories = ["development-tools", "config"]
+
+# docs.rs is where anyone implementing the model will read it, so the links in
+# these doc comments have to resolve there and not only locally.
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
 globset.workspace = true

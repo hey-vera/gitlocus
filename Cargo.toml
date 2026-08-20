@@ -8,7 +8,7 @@ edition = "2024"
 rust-version = "1.90"
 license = "Apache-2.0"
 repository = "https://github.com/hey-vera/gitlocus"
-homepage = "https://github.com/hey-vera/gitlocus"
+homepage = "https://locus.heyvera.org"
 authors = ["The GitLocus Authors"]
 
 [workspace.dependencies]

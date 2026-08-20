@@ -37,7 +37,7 @@ direction:
 | README announced v0.0.1 | v0.0.2 had shipped | `every_version_string_matches_the_workspace_version` |
 | a `Code of Conduct` reporting address | `gitlocus.dev` does not resolve; it would have bounced | none — one-time; a live-domain check would make CI depend on DNS |
 | `skipped` counted as a deterministic pass | invariant 3 violated in the product, not the config | `scripts/test_collect_evidence.py` |
-| crates named `locus-core` / `locus-cli` | both already taken on crates.io; unpublishable | none — one-time, and the names are now taken by us |
+| crates named `locus-core` / `locus-cli` | both already taken on crates.io; unpublishable | `just publish-dry-run` — and note `gitlocus-core` and `gitlocus-cli` are still **free and unreserved** on crates.io as of 2026-08-20, so the same thing can happen again until someone publishes |
 | a step named "Publish immutable release" | see row two | `just brief` |
 | the gate evaluated "the policy" | it evaluated the one the pull request shipped, so a change deleting every rule came back `satisfied` | `clause_6_a_contribution_cannot_weaken_the_policy_that_governs_it` |
 | conformance clause 6 was claimed | it was the only clause with no test, which is why the row above survived | `crates/gitlocus-core/tests/conformance.rs` |
