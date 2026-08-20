@@ -4,6 +4,12 @@
 `locus` — decide whether a change may enter a trunk, and let anyone check the
 answer.
 
+```bash
+cargo install gitlocus-cli
+```
+
+Installs the `locus` binary.
+
 ```console
 $ locus verify --policy .gitlocus/policy.yml --contribution c.json --evidence e.json
 blocked: tests unmet

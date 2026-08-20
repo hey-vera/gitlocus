@@ -187,7 +187,14 @@ stricter arrangement than the action, not a laxer one.
 ## Try it locally
 
 ```bash
-cargo build --release
+cargo install gitlocus-cli
+```
+
+That installs the `locus` binary from crates.io. To build from this checkout
+instead — which is what you want if you are changing it:
+
+```bash
+cargo build --release   # then use ./target/release/locus below
 ```
 
 **1. Describe the change.** `locus` reads the facts out of git — you never write
