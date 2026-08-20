@@ -31,13 +31,13 @@ direction:
 | claimed | actual | guard |
 |---|---|---|
 | "GitLocus reads `VOUCHED.td`" | no reader existed | `a_vouch_raises_an_unknown_actor_but_does_not_demote_a_higher_one` |
-| "the release is immutable" | a repository setting, never enabled | `just brief` — enabled 2026-08-19; `brief` fails if it is turned off. Releases published before that stay mutable, so `brief` still reports `immutable:false` for v0.0.3. True from the next tag, not retroactively. |
+| "the release is immutable" | a repository setting, never enabled | `just brief` — enabled 2026-08-19, and true from v0.0.4 onward: `brief` reports `v0.0.4 ... immutable:true`. Not retroactive, so v0.0.2 and v0.0.3 stay mutable forever. |
 | the gate reported a verdict on "the evidence" | it could only see its own workflow | `scripts/collect_evidence.py` — evidence comes from the check-runs API, not from a job's `needs` |
 | approvals were counted | from a self-asserted string | `a_forged_signer_in_input_json_cannot_satisfy_a_signed_requirement` |
 | README announced v0.0.1 | v0.0.2 had shipped | `every_version_string_matches_the_workspace_version` |
 | a `Code of Conduct` reporting address | `gitlocus.dev` does not resolve; it would have bounced | none — one-time; a live-domain check would make CI depend on DNS |
 | `skipped` counted as a deterministic pass | invariant 3 violated in the product, not the config | `scripts/test_collect_evidence.py` |
-| crates named `locus-core` / `locus-cli` | both already taken on crates.io; unpublishable | `just publish-dry-run` — and note `gitlocus-core` and `gitlocus-cli` are still **free and unreserved** on crates.io as of 2026-08-20, so the same thing can happen again until someone publishes |
+| crates named `locus-core` / `locus-cli` | both already taken on crates.io; unpublishable | `just publish-dry-run` — and both names are now **held**: `gitlocus-core` and `gitlocus-cli` 0.0.4 published 2026-08-20. The exposure this row describes is closed |
 | a step named "Publish immutable release" | see row two | `just brief` |
 | the gate evaluated "the policy" | it evaluated the one the pull request shipped, so a change deleting every rule came back `satisfied` | `clause_6_a_contribution_cannot_weaken_the_policy_that_governs_it` |
 | conformance clause 6 was claimed | it was the only clause with no test, which is why the row above survived | `crates/gitlocus-core/tests/conformance.rs` |
@@ -191,6 +191,44 @@ permissions problem and is not.
 
 **Guard:** `.github/workflows/release.yml` — `on_registry` does exactly that, and
 the comment above it names both wrong answers.
+
+### `cargo publish` is the only thing here that builds for MSVC
+
+Every recipe goes through `LOCUS_CARGO`, so nothing else on this machine ever
+resolves to the MSVC target. `cargo publish` does, because it verifies by
+building and `rust-toolchain.toml` pins `channel = "stable"`, which resolves to
+the MSVC host. There are no Visual C++ build tools installed, so it fails:
+
+    error: linker `link.exe` not found
+    note: the msvc targets depend on the msvc linker but `link.exe` was not found
+
+This is a *different* failure from the MSYS `link` shadowing recorded above —
+that one is a wrong linker on PATH, this one is no linker at all — and it looks
+like a broken publish rather than a missing toolchain. Prefix it the same way:
+
+    cargo +stable-x86_64-pc-windows-gnullvm publish -p gitlocus-core --locked
+
+The verification toolchain does not affect what is published. `cargo publish`
+uploads the source tarball and builds only to check that it compiles, so
+verifying under gnullvm is correct rather than a workaround.
+
+**Guard:** `justfile` — `just publish-dry-run` goes through `LOCUS_CARGO` and so
+never hits this. The trap is only reachable by running `cargo publish` by hand,
+which is exactly what the first publish of a crate has to be.
+
+### Verifying the SBOM needs its predicate type named
+
+`gh attestation verify` looks for SLSA provenance unless told otherwise, so
+pointing it at the SBOM bundle fails with a message about the wrong thing:
+
+    Error: no attestations found with predicate type: https://slsa.dev/provenance/v1
+
+The bundle is fine; the default is wrong for it. Both commands are in the
+release notes, and the SBOM one carries
+`--predicate-type https://spdx.dev/Document/v2.3`.
+
+**Guard:** `.github/workflows/release.yml` — the step summary prints both
+commands, each with the flags it needs, so nobody has to derive this.
 
 ### Do not stack pull requests here
 

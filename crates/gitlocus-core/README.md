@@ -4,6 +4,10 @@
 The reference implementation of the GitLocus model: whether a change may enter a
 trunk, decided reproducibly by anyone holding the same inputs.
 
+```bash
+cargo add gitlocus-core
+```
+
 Five types carry the whole model.
 
 | type | what it is |
