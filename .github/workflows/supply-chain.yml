@@ -82,38 +82,6 @@ jobs:
           tool: just
       - run: just cargo-deny
 
-  # cargo-deny checks the tree as it stands. This checks the *change*: a pull
-  # request that introduces a dependency with a known advisory, or under a
-  # licence deny.toml does not allow, is refused at review time rather than
-  # after it has merged and someone reads the nightly run.
-  #
-  # It is deliberately not a required status check. Fork pull requests get a
-  # read-only token and the dependency graph is not always readable from one, so
-  # making it required would block contributions for a reason the contributor
-  # cannot fix. cargo-deny stays the blocking check; this is the earlier, more
-  # specific signal.
-  dependency-review:
-    name: dependency-review
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      pull-requests: write  # Post the summary of what the change adds.
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
-        with:
-          # The same allow-list deny.toml carries, for the same reason: a licence
-          # arriving in the tree should be a decision someone makes rather than a
-          # default someone inherits. Kept in step with deny.toml by
-          # `every_allowed_licence_appears_in_both_places`.
-          allow-licenses: Apache-2.0, MIT, Unicode-3.0, Zlib
-          fail-on-severity: low
-          comment-summary-in-pr: on-failure
-
   dco:
     name: dco
     if: github.event_name == 'pull_request'

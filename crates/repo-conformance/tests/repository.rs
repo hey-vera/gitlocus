@@ -537,52 +537,6 @@ fn every_version_string_matches_the_workspace_version() {
     assert!(wrong.is_empty(), "version drift:\n{}", wrong.join("\n"));
 }
 
-// --- one licence allow-list ----------------------------------------------------
-
-/// `deny.toml` says the allow-list is "exactly the licences present in the
-/// current tree, and no more", so that a dependency arriving under a new licence
-/// fails on purpose. `dependency-review` enforces the same rule earlier, on the
-/// change rather than on the tree — and enforces it from a second copy of the
-/// list, written in a workflow.
-///
-/// Two copies of a policy is how one of them quietly becomes wrong. This is the
-/// check that stops that, and it exists because writing the second copy was
-/// otherwise the moment to have known better.
-#[test]
-fn every_allowed_licence_appears_in_both_places() {
-    let deny = read("deny.toml");
-    let allow = deny
-        .split_once("allow = [")
-        .and_then(|(_, rest)| rest.split_once(']'))
-        .map(|(list, _)| list)
-        .expect("an allow list in deny.toml");
-    let from_deny: BTreeSet<String> = allow
-        .split(',')
-        .filter_map(|entry| entry.split('"').nth(1))
-        .map(str::to_string)
-        .collect();
-    assert!(
-        from_deny.len() >= 3,
-        "parsed {from_deny:?} from deny.toml; this test has gone blind"
-    );
-
-    let workflow = read(".github/workflows/supply-chain.yml");
-    let line = workflow
-        .lines()
-        .find_map(|l| l.trim().strip_prefix("allow-licenses:"))
-        .expect("an allow-licenses line in supply-chain.yml");
-    let from_workflow: BTreeSet<String> = line
-        .split(',')
-        .map(|entry| entry.trim().to_string())
-        .filter(|entry| !entry.is_empty())
-        .collect();
-
-    assert_eq!(
-        from_deny, from_workflow,
-        "deny.toml and dependency-review disagree about which licences are allowed"
-    );
-}
-
 // --- learnings carry a guard ---------------------------------------------------
 
 /// LEARNINGS.md says a learning without a guard is a note, and notes decay into

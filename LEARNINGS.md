@@ -45,6 +45,7 @@ direction:
 | the ruleset "restricts pushes to those paths to code owners" | it carries no path restriction at all | none — the claim was withdrawn; `.gitlocus/policy.yml` enforces `min_tier: maintainer` on those paths instead, which is the product's own mechanism |
 | the approval requirement gated merges | every merge to `main` logged `result=bypass`, so no rule in the ruleset had ever been evaluated | `just brief` — fails if the `main` ruleset gains a bypass actor |
 | the four documented commands were "the same commands CI runs" | CI passed `--locked` on all four and ran nine more checks besides, so a change could be green here and red on eleven required checks | `every_required_check_has_a_job_and_a_recipe` |
+| "Dependabot security updates: enabled" | reported by the repository API while the dependency graph is **not** enabled, so `dependency-graph/compare` returns 403 and dependency review cannot run at all | https://github.com/hey-vera/gitlocus/issues/67 |
 | `cargo test --doc` kept "the model's documentation examples honest" | every fenced block in a doc comment is `yaml` or `text`, which rustdoc does not compile; the step reported `running 0 tests` | `every_yaml_example_in_the_documentation_is_a_valid_policy` |
 
 Run it, read the output, quote it. Under-claiming costs nothing; over-claiming
