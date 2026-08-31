@@ -59,7 +59,7 @@ jobs:
 
       # zizmor covers a great deal but does not assert the two rules this
       # project treats as absolute, so they are checked directly.
-      - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2.86.3
+      - uses: taiki-e/install-action@b6ff580856c41316412a0b9b60540fbc6f8c82cc # v2.86.7
         with:
           tool: just
       # The two rules this project treats as absolute, which zizmor does not
@@ -74,10 +74,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2.86.3
+      - uses: taiki-e/install-action@b6ff580856c41316412a0b9b60540fbc6f8c82cc # v2.86.7
         with:
           tool: cargo-deny
-      - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2.86.3
+      - uses: taiki-e/install-action@b6ff580856c41316412a0b9b60540fbc6f8c82cc # v2.86.7
         with:
           tool: just
       - run: just cargo-deny
@@ -128,7 +128,7 @@ jobs:
       # The sign-off is this project's accountability mechanism: it is the
       # statement that a named human will answer for the change. Checking it is
       # not paperwork, it is the one thing the model actually requires.
-      - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2.86.3
+      - uses: taiki-e/install-action@b6ff580856c41316412a0b9b60540fbc6f8c82cc # v2.86.7
         with:
           tool: just
       # The sign-off is this project's accountability mechanism: it is the
@@ -152,7 +152,7 @@ jobs:
       # is Apache-2.0 except for the server, which is AGPL-3.0 (ADR 0016), and a
       # file carrying the wrong identifier fails here instead of being noticed
       # in review, or not.
-      - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2.86.3
+      - uses: taiki-e/install-action@b6ff580856c41316412a0b9b60540fbc6f8c82cc # v2.86.7
         with:
           tool: just
       # The licence map is executable rather than documentary. This repository
