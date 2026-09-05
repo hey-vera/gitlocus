@@ -223,6 +223,19 @@ fn an_expired_grant_is_refused_however_valid_it_was() {
 }
 
 #[test]
+fn a_grant_is_in_force_from_the_second_it_is_issued() {
+    // The boundary the first mutation run found unasserted: at exactly
+    // `issued_at` the grant works; one second earlier it does not.
+    let (registry, grant) = issued();
+    assert!(
+        registry
+            .authorise(&grant.id, T0, REPO, Act::Propose)
+            .expect("storage")
+            .is_ok()
+    );
+}
+
+#[test]
 fn a_grant_is_not_in_force_before_it_is_issued() {
     let (registry, grant) = issued();
     let refused = registry
