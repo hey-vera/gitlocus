@@ -30,3 +30,6 @@ rusqlite = { version = "0.40", features = ["bundled"] }
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+proptest = { version = "1.11.0", default-features = false, features = ["std"] }

@@ -30,7 +30,7 @@ use std::path::Path;
 /// Migrations are forward-only. A database at a newer version than this is
 /// refused rather than read, because the store is the one asset that cannot be
 /// reconstructed and a silent misread of it is the worst available failure.
-pub const SCHEMA_VERSION: u32 = 1;
+pub const SCHEMA_VERSION: u32 = 2;
 
 /// One upstream identity: who an identity provider says this is.
 ///
@@ -137,7 +137,7 @@ impl From<rusqlite::Error> for RegistryError {
 /// The principal registry, over one SQLite database.
 #[derive(Debug)]
 pub struct Registry {
-    conn: Connection,
+    pub(crate) conn: Connection,
 }
 
 impl Registry {
@@ -205,6 +205,32 @@ impl Registry {
                          PRIMARY KEY (provider, subject)
                      );
                      CREATE INDEX bindings_by_principal ON bindings(principal);",
+                )?,
+                // Grants (ADR 0020 §2). Repositories and acts are rows rather
+                // than an encoded column, so the schema, not a parser, says what
+                // a grant may contain.
+                2 => tx.execute_batch(
+                    "CREATE TABLE grants (
+                         id             TEXT PRIMARY KEY,
+                         principal      TEXT NOT NULL REFERENCES principals(id),
+                         implementation TEXT NOT NULL,
+                         model          TEXT,
+                         ceiling        TEXT NOT NULL,
+                         issued_at      INTEGER NOT NULL,
+                         expires_at     INTEGER NOT NULL,
+                         revoked_at     INTEGER
+                     );
+                     CREATE INDEX grants_by_principal ON grants(principal);
+                     CREATE TABLE grant_repositories (
+                         grant_id   TEXT NOT NULL REFERENCES grants(id),
+                         repository TEXT NOT NULL,
+                         PRIMARY KEY (grant_id, repository)
+                     );
+                     CREATE TABLE grant_acts (
+                         grant_id TEXT NOT NULL REFERENCES grants(id),
+                         act      TEXT NOT NULL,
+                         PRIMARY KEY (grant_id, act)
+                     );",
                 )?,
                 // The loop cannot reach a version this build does not define:
                 // the check above refuses anything past SCHEMA_VERSION, and every

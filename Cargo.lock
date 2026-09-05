@@ -626,6 +626,7 @@ name = "locus-ledger"
 version = "0.0.4"
 dependencies = [
  "gitlocus-core",
+ "proptest",
  "rusqlite",
 ]
 
