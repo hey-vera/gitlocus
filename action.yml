@@ -22,7 +22,10 @@ inputs:
   token:
     description: >-
       Token used to read check runs and the contributor's repository permission.
-      Needs `checks: read` and `contents: read`; GITHUB_TOKEN is enough.
+      Needs `checks: read` and `contents: read`; GITHUB_TOKEN is enough. With
+      `actions: read` as well, the action identifies the job it runs in by id;
+      without it, it finds itself by this workflow run and the job's key, which
+      works unless the job has a `name:` different from its key.
     required: true
   policy:
     description: Path to the policy document, relative to the repository root.
@@ -230,7 +233,7 @@ runs:
         if [ -n "$GITLOCUS_SELF_CHECK_RUN" ]; then
           echo "this job is check run $GITLOCUS_SELF_CHECK_RUN; excluding it by identity"
         else
-          echo "::warning::could not resolve this job's check run id; only the exclude pattern applies"
+          echo "this job's check run id is not readable (the jobs endpoint needs actions: read); matching this run's job named $GITHUB_JOB instead"
         fi
 
         for attempt in $(seq 1 20); do

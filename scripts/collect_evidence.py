@@ -38,6 +38,24 @@ EXCLUDED = re.compile(os.environ.get("GITLOCUS_EXCLUDE") or r"^(gate|arm|Scoreca
 # and the name pattern is the only exclusion.
 SELF_CHECK_RUN = os.environ.get("GITLOCUS_SELF_CHECK_RUN", "").strip()
 
+# The fallback when the id could not be resolved, which happens whenever the
+# token lacks `actions: read` (the jobs endpoint needs it; check runs do not).
+# A check run produced by Actions links to `.../runs/<run id>/job/<job id>`, so
+# a run from this workflow run whose name is this job's name is this job - unless
+# the caller gave the job a `name:` different from its key, in which case the
+# fallback matches nothing and the `exclude` pattern is what remains.
+SELF_RUN_ID = os.environ.get("GITHUB_RUN_ID", "").strip()
+SELF_JOB = os.environ.get("GITHUB_JOB", "").strip()
+
+
+def is_self(run):
+    """Whether a check run is the job running this collector."""
+    if SELF_CHECK_RUN and str(run.get("id", "")) == SELF_CHECK_RUN:
+        return True
+    if SELF_RUN_ID and SELF_JOB and run.get("name") == SELF_JOB:
+        return f"/runs/{SELF_RUN_ID}/job/" in (run.get("url") or "")
+    return False
+
 # Only two conclusions mean the check actually ran and was satisfied.
 PASSING = {"success", "neutral"}
 
@@ -67,7 +85,7 @@ def relevant(runs):
     seen = set()
     for run in runs:
         name = run["name"]
-        if SELF_CHECK_RUN and str(run.get("id", "")) == SELF_CHECK_RUN:
+        if is_self(run):
             continue
         if EXCLUDED.match(name) or name in seen:
             continue
