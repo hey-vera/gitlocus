@@ -3,6 +3,7 @@
 
 - **Status:** accepted
 - **Date:** 2026-08-19
+- **Amended by:** [0021](0021-state-lives-beside-the-evaluator-never-in-it.md) — a second AGPL crate, `crates/locus-ledger`, joins the table below
 - **Supersedes the licensing and repository decisions recorded in** [#13](https://github.com/hey-vera/gitlocus/issues/13)
 
 ## Context
@@ -25,6 +26,7 @@ middle of one product.
 |---|---|
 | `spec/`, `crates/gitlocus-core`, `crates/gitlocus-cli` | Apache-2.0 |
 | `crates/locusd` | AGPL-3.0-only |
+| `crates/locus-ledger` (planned, ADR 0021) | AGPL-3.0-only |
 
 The reasoning is an asymmetry between the two halves of the original decision:
 

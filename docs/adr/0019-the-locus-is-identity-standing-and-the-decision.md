@@ -67,7 +67,7 @@ Three clarifications follow, and each changes something on the record:
    This names the something.
 
 3. **Identity, delegation and the ledger move ahead of ingest.** Stage 1 becomes
-   them, and the records that follow this one (0020, 0021, 0022) say how. The
+   them, and the records that follow this one — [0020](0020-identity-is-federated-standing-and-delegation-are-native.md), [0021](0021-state-lives-beside-the-evaluator-never-in-it.md), [0022](0022-the-surface-shows-the-decisions-that-need-a-human.md) — say how. The
    GitHub App joins the GitLab and mail producers in Stage 3 as the GitHub
    backend connector. The next adoption test must exercise a login, a grant and a
    queue, or it tests the action again.
@@ -84,14 +84,14 @@ kept free of a clock, a network and a store, and that is what makes a verdict
 content-addressable. A principal registry, grants and a ledger are exactly the
 state it has been kept free of. Where that state lives, and how it stays out of
 the evaluator, is an architectural question rather than a detail, and it gets its
-own record (0021).
+own record ([0021](0021-state-lives-beside-the-evaluator-never-in-it.md)).
 
 **A token issuer becomes the most security-sensitive component this project
 has.** Whoever holds the issuer key can mint a delegation. The release workflow
 held that title until now.
 
 **Login depends on other people's providers until it does not.** Federated login
-(0020) is the adoption path applied to identity. It means availability depends on
+([0020](0020-identity-is-federated-standing-and-delegation-are-native.md)) is the adoption path applied to identity. It means availability depends on
 an upstream until a native credential exists, and "log in with GitHub" on a
 GitHub replacement reads oddly. It is correct for the same reason Stage 3 is:
 value before migration.
@@ -127,7 +127,7 @@ makes GitLocus a GitHub feature forever, which contradicts the goal outright.
 **Replace GitHub by reimplementing it.** Issues, discussions, a file browser, code
 review, stars. That is the prettier GitHub 0001 warned against, and it forgets why
 GitHub's surface is enormous: twenty years of accretion. The decision is the
-product, and the surface follows from that (0022).
+product, and the surface follows from that ([0022](0022-the-surface-shows-the-decisions-that-need-a-human.md)).
 
 **Sovereignty as the reason to move.** 0011's Radicle finding still holds. The
 reason to move has to be something you cannot get anywhere else: a decision

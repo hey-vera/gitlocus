@@ -16,7 +16,7 @@ which part of the context has changed.
 | [0004](0004-rust-core-shared-by-cli-and-server.md) | One Rust core, shared by the CLI and the server | accepted |
 | [0005](0005-evidence-classes-survive-better-models.md) | Evidence classes survive better models | accepted |
 | [0006](0006-the-gate-must-resist-what-it-gates.md) | The gate must resist what it gates | amended by 0015 |
-| [0007](0007-actor-identity-is-a-delegation-chain.md) | Actor identity is a delegation chain, not a name | accepted |
+| [0007](0007-actor-identity-is-a-delegation-chain.md) | Actor identity is a delegation chain, not a name | amended by 0020 |
 | [0008](0008-authorship-is-declared-not-detected.md) | Authorship is declared, not detected | accepted |
 | [0009](0009-trust-is-earned-from-merged-history.md) | Trust is earned from merged history, not asserted | accepted |
 | [0010](0010-an-attestation-needs-someone-to-attest.md) | An attestation needs someone to attest | accepted |
@@ -25,10 +25,13 @@ which part of the context has changed.
 | [0013](0013-a-contribution-is-governed-by-base-and-head.md) | A contribution is governed by base and head together | accepted |
 | [0014](0014-the-gate-is-built-from-the-base-revision.md) | The gate is built from the base revision | accepted |
 | [0015](0015-mutation-testing-is-what-resists-gate-gaming.md) | Mutation testing is what resists gate gaming | accepted |
-| [0016](0016-locusd-lives-here-under-agpl.md) | locusd lives in this repository, under AGPL-3.0 | accepted |
+| [0016](0016-locusd-lives-here-under-agpl.md) | locusd lives in this repository, under AGPL-3.0 | amended by 0021 |
 | [0017](0017-the-foundation-layer-is-executable.md) | The foundation layer is executable | accepted |
 | [0018](0018-quantified-claims-are-tested-as-properties.md) | A claim about every input is tested over every input | accepted |
 | [0019](0019-the-locus-is-identity-standing-and-the-decision.md) | The locus is identity, standing and the decision; storage is a backend | accepted |
+| [0020](0020-identity-is-federated-standing-and-delegation-are-native.md) | Identity is federated; standing and delegation are native | accepted |
+| [0021](0021-state-lives-beside-the-evaluator-never-in-it.md) | State lives beside the evaluator, never in it | accepted |
+| [0022](0022-the-surface-shows-the-decisions-that-need-a-human.md) | The surface shows the decisions that need a human | accepted |
 
 ## Reading order
 

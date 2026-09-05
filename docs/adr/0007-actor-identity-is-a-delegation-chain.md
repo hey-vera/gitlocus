@@ -3,6 +3,7 @@
 
 - **Status:** accepted
 - **Date:** 2026-08-18
+- **Amended by:** [0020](0020-identity-is-federated-standing-and-delegation-are-native.md) — GitLocus issues exactly one credential, the delegation; the chain lives on the `Actor` and is attenuated in the evaluator
 
 ## Context
 
