@@ -248,3 +248,64 @@ fn a_binding_refused_by_another_principal_leaves_both_intact() {
         1
     );
 }
+
+// --- an error names what went wrong -----------------------------------------------
+
+#[test]
+fn every_error_names_what_went_wrong() {
+    // The message is the only diagnostic an operator or a caller ever sees. A
+    // Display that could render nothing was the one mutant the suite missed on
+    // the first run of this crate, which is exactly the kind of gap this test
+    // exists to close: each variant must carry the identifiers that make it
+    // actionable.
+    let registry = Registry::in_memory().expect("open");
+    let josh = registry.enrol(github("1", "josh")).expect("enrol");
+
+    let last = registry
+        .unbind(&josh.id, "github", "1")
+        .unwrap_err()
+        .to_string();
+    assert!(
+        last.contains(&josh.id) && last.contains("one binding left"),
+        "{last}"
+    );
+
+    let bound = registry
+        .enrol(github("1", "again"))
+        .unwrap_err()
+        .to_string();
+    assert!(
+        bound.contains("github:1") && bound.contains(&josh.id),
+        "{bound}"
+    );
+
+    let unknown = registry.get("nobody").expect("get");
+    assert!(unknown.is_none());
+    let unknown = registry
+        .unbind("nobody", "github", "1")
+        .unwrap_err()
+        .to_string();
+    assert!(unknown.contains("nobody"), "{unknown}");
+
+    registry.bind(&josh.id, &gitlab("9", "josh")).expect("bind");
+    let not_bound = registry
+        .unbind(&josh.id, "github", "2")
+        .unwrap_err()
+        .to_string();
+    assert!(
+        not_bound.contains("github:2") && not_bound.contains(&josh.id),
+        "{not_bound}"
+    );
+
+    let path = scratch("future-message");
+    {
+        let conn = rusqlite::Connection::open(&path).expect("raw open");
+        conn.pragma_update(None, "user_version", 99)
+            .expect("set version");
+    }
+    let future = Registry::open(&path).unwrap_err().to_string();
+    assert!(
+        future.contains("99") && future.contains(&SCHEMA_VERSION.to_string()),
+        "{future}"
+    );
+}
