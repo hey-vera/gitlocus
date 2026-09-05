@@ -398,15 +398,11 @@ jobs:
           # Excluded by identity as the action does it (#81); the name pattern
           # in collect_evidence.py still covers this repository's posture jobs.
           GITLOCUS_SELF_CHECK_RUN=$(gh api "repos/$REPO/actions/runs/$GITHUB_RUN_ID/jobs" --paginate \
-            --jq --arg runner "$RUNNER_NAME" \
-            '.jobs[] | select(.status == "in_progress" and .runner_name == env.RUNNER_NAME) | .id' \
-            2>/dev/null | head -n1 || true)
+            --jq '.jobs[] | "\(.id)\t\(.status)\t\(.runner_name)"' 2>/dev/null \
+            | awk -F'\t' -v runner="$RUNNER_NAME" '$2 == "in_progress" && $3 == runner { print $1 }' \
+            | head -n1 || true)
           export GITLOCUS_SELF_CHECK_RUN
           echo "this job is check run ${GITLOCUS_SELF_CHECK_RUN:-<unresolved>}"
-          # Diagnostic while the id path is being proven live: what the jobs
-          # endpoint says, and what this runner calls itself.
-          echo "runner: ${RUNNER_NAME:-<unset>}"
-          gh api "repos/$REPO/actions/runs/$GITHUB_RUN_ID/jobs" --paginate             --jq '.jobs[] | "job \(.id) \(.name) \(.status) runner=\(.runner_name)"'             2>&1 | head -20 || true
           for attempt in $(seq 1 20); do
             gh api "repos/$REPO/commits/$HEAD_SHA/check-runs" --paginate --jq '.check_runs' > raw.json
             python3 scripts/flatten_checks.py

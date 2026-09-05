@@ -226,9 +226,9 @@ runs:
         # is the check-run id, and the job running on this runner right now is
         # this one.
         GITLOCUS_SELF_CHECK_RUN=$(gh api "repos/$REPO/actions/runs/$GITHUB_RUN_ID/jobs" --paginate \
-          --jq --arg runner "$RUNNER_NAME" \
-          '.jobs[] | select(.status == "in_progress" and .runner_name == env.RUNNER_NAME) | .id' \
-          2>/dev/null | head -n1 || true)
+          --jq '.jobs[] | "\(.id)\t\(.status)\t\(.runner_name)"' 2>/dev/null \
+          | awk -F'\t' -v runner="$RUNNER_NAME" '$2 == "in_progress" && $3 == runner { print $1 }' \
+          | head -n1 || true)
         export GITLOCUS_SELF_CHECK_RUN
         if [ -n "$GITLOCUS_SELF_CHECK_RUN" ]; then
           echo "this job is check run $GITLOCUS_SELF_CHECK_RUN; excluding it by identity"
