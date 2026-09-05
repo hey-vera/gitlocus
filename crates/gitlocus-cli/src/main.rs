@@ -94,6 +94,10 @@ enum Command {
         /// Agent implementation identifier. Makes this agent-produced work.
         #[arg(long)]
         agent: Option<String>,
+        /// The model that produced the work, when known. Part of the triple
+        /// standing attaches to; only meaningful with --agent.
+        #[arg(long, requires = "agent")]
+        model: Option<String>,
         /// Human answerable for the agent's work. With --agent, makes a pair.
         #[arg(long)]
         operator: Option<String>,
@@ -341,6 +345,7 @@ fn run() -> Result<ExitCode> {
             actor,
             tier,
             agent,
+            model,
             operator,
             key_binding,
             vouched_file,
@@ -353,6 +358,7 @@ fn run() -> Result<ExitCode> {
             actor,
             tier,
             agent,
+            model,
             operator,
             key_binding,
             vouched_file,
@@ -372,6 +378,7 @@ struct ContributionArgs {
     actor: Option<String>,
     tier: TierArg,
     agent: Option<String>,
+    model: Option<String>,
     operator: Option<String>,
     key_binding: Option<String>,
     vouched_file: Option<PathBuf>,
@@ -396,9 +403,13 @@ fn describe_contribution(args: ContributionArgs) -> Result<ExitCode> {
     let kind = match (args.agent, args.operator) {
         (Some(implementation), Some(operator)) => ActorKind::Pair {
             implementation,
+            model: args.model,
             operator,
         },
-        (Some(implementation), None) => ActorKind::Agent { implementation },
+        (Some(implementation), None) => ActorKind::Agent {
+            implementation,
+            model: args.model,
+        },
         // An operator without an agent is a human doing their own work.
         (None, _) => ActorKind::Human,
     };
@@ -441,6 +452,9 @@ fn describe_contribution(args: ContributionArgs) -> Result<ExitCode> {
             kind,
             tier,
             key_binding: args.key_binding,
+            // The CLI describes an actor acting on its own standing. A chain
+            // arrives with a credential, and the CLI holds none.
+            delegation: Vec::new(),
         },
         changed_paths,
         forge_ref: None,

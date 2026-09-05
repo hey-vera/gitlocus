@@ -52,9 +52,12 @@ as success. *Defence:* `inconclusive` is unmet. Covered by
 `clause_3_inconclusive_is_unmet_not_passed`.
 
 **T5 — Unattributable agent work.** An agent opens changes nobody will answer for.
-*Defence:* `ActorKind::Agent` carries no responsible human, and policies can
-require a tier such an actor cannot reach. Covered by
-`unattended_agents_have_no_responsible_human`.
+*Defence:* `ActorKind::Agent` carries no responsible human, its effective tier
+is `unknown` whatever the document asserts, and a delegated actor never exceeds
+the ceiling anyone in its chain set. Covered by
+`unattended_agents_have_no_responsible_human`,
+`a_chain_with_no_human_at_its_root_holds_no_standing` and
+`a_delegated_actor_never_holds_a_tier_above_its_delegator`.
 
 **T6 — Non-determinism hiding a bug.** A verdict that varies between runs cannot be
 audited. *Defence:* verdicts are pure functions; evidence ordering is tested.

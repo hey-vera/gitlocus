@@ -46,8 +46,25 @@ An Actor MUST declare exactly one kind:
 | `pair` | An agent acting under an identified operator who accepts responsibility. |
 
 An Actor of kind `agent` MUST NOT be treated as having a responsible human. A
-verifier SHOULD hold such actors to the lowest trust tier regardless of any other
-signal, because there is no party to hold accountable for the change.
+verifier MUST hold such actors to the lowest trust tier regardless of any other
+signal, because there is no party to hold accountable for the change. (This was
+a SHOULD until the delegation chain below made the rule general; a chain whose
+root is unaccountable attenuates from nothing.)
+
+An Actor of kind `agent` or `pair` MAY carry a `model`: what actually produced
+the work, when known. Standing attaches to the durable triple
+`(implementation, model, operator)`, never to an instance or a session. Two
+harnesses running different models are not interchangeable and MUST NOT be
+treated as sharing standing.
+
+An Actor MAY carry a `delegation` chain: an ordered list, root first, of the
+hops by which somebody let this actor act for them. Each hop names its
+`delegator` and a `ceiling`, the most standing the hop may hold. `tier` is then
+the standing held at the root of the chain. A verifier MUST compute the
+**effective tier** as the minimum of `tier` and every `ceiling` in the chain —
+a ceiling is a cap and never a promotion — and MUST evaluate `min_tier` against
+the effective tier. A hop MAY carry a `grant` identifier; it is informational
+only and a verifier MUST NOT decide anything from it.
 
 An Actor SHOULD carry a `key_binding` naming the OIDC subject or public key its
 signatures verify against. An Actor without a `key_binding` is unauthenticated:
@@ -301,7 +318,10 @@ An implementation is conformant if it:
 9. rejects evidence signed by an identity no constraint accepts;
 10. evaluates an undeclared contribution as `generated`, honours an
     `authorship` claim only on an `attested` record, and intersects the
-    accepted claims of every matching rule.
+    accepted claims of every matching rule;
+11. computes an actor's effective standing as the minimum of its tier and every
+    ceiling in its delegation chain, and holds an actor with no answerable party
+    at its root to `unknown`.
 
 The reference implementation lives in [`crates/gitlocus-core`](../crates/gitlocus-core);
 the test suite there is the executable form of this section.

@@ -13,7 +13,8 @@
 
 use gitlocus_core::policy::CompiledPolicy;
 use gitlocus_core::{
-    Actor, ActorKind, Contribution, Evidence, EvidenceClass, Outcome, Policy, TrustTier, VouchList,
+    Actor, ActorKind, Contribution, Delegation, Evidence, EvidenceClass, Outcome, Policy,
+    TrustTier, VouchList,
 };
 use proptest::prelude::*;
 
@@ -84,6 +85,7 @@ fn contribution() -> impl Strategy<Value = Contribution> {
                 kind: ActorKind::Human,
                 tier: TrustTier::Contributor,
                 key_binding: None,
+                delegation: Vec::new(),
             },
             changed_paths: paths.into_iter().map(str::to_string).collect(),
             forge_ref: None,
@@ -279,5 +281,87 @@ proptest! {
             // YAML is the part with something to get wrong.
             let _ = policy.compile();
         }
+    }
+}
+
+// --- ADR 0007: attenuation, quantified over every chain -------------------------
+
+fn tier() -> impl Strategy<Value = TrustTier> {
+    prop_oneof![
+        Just(TrustTier::Unknown),
+        Just(TrustTier::Vouched),
+        Just(TrustTier::Contributor),
+        Just(TrustTier::Maintainer),
+    ]
+}
+
+fn chain() -> impl Strategy<Value = Vec<Delegation>> {
+    prop::collection::vec(
+        (tier(), prop::option::of(Just("grant".to_string()))).prop_map(|(ceiling, grant)| {
+            Delegation {
+                delegator: "someone".to_string(),
+                ceiling,
+                grant,
+            }
+        }),
+        0..4,
+    )
+}
+
+fn answerable_kind() -> impl Strategy<Value = ActorKind> {
+    prop_oneof![
+        Just(ActorKind::Human),
+        Just(ActorKind::Pair {
+            implementation: "claude-code".to_string(),
+            model: None,
+            operator: "josh".to_string(),
+        }),
+    ]
+}
+
+proptest! {
+    /// ADR 0007: "a delegated actor may never hold a tier above the actor that
+    /// delegated to it." For every root tier and every chain, the effective
+    /// tier is at most the root's and at most every ceiling's — a hop can only
+    /// lower the result. Conformance clause 11.
+    #[test]
+    fn effective_tier_never_exceeds_the_root_or_any_ceiling(
+        root in tier(),
+        kind in answerable_kind(),
+        delegation in chain(),
+    ) {
+        let actor = Actor {
+            id: "josh".to_string(),
+            kind,
+            tier: root,
+            key_binding: None,
+            delegation: delegation.clone(),
+        };
+        let effective = actor.effective_tier();
+        prop_assert!(effective <= root, "{effective:?} above the root {root:?}");
+        for hop in &delegation {
+            prop_assert!(effective <= hop.ceiling, "{effective:?} above a ceiling {:?}", hop.ceiling);
+        }
+        // And no lower than it has to be: the minimum, exactly.
+        let expected = delegation.iter().fold(root, |t, hop| t.min(hop.ceiling));
+        prop_assert_eq!(effective, expected);
+    }
+
+    /// ADR 0007: "a chain with no human at its root terminates at unknown."
+    /// Whatever tier the document asserts and whatever the ceilings say, an
+    /// agent nobody answers for holds no standing. Conformance clause 11.
+    #[test]
+    fn an_agent_rooted_chain_is_always_unknown(root in tier(), delegation in chain()) {
+        let actor = Actor {
+            id: "agent".to_string(),
+            kind: ActorKind::Agent {
+                implementation: "claude-code".to_string(),
+                model: Some("some-model".to_string()),
+            },
+            tier: root,
+            key_binding: None,
+            delegation,
+        };
+        prop_assert_eq!(actor.effective_tier(), TrustTier::Unknown);
     }
 }

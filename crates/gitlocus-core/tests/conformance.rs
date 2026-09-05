@@ -10,7 +10,8 @@
 use gitlocus_core::policy::{CompiledPolicy, Policy};
 use gitlocus_core::verdict::{Decision, UnmetReason};
 use gitlocus_core::{
-    Actor, ActorKind, AuthorshipClaim, Contribution, Evidence, EvidenceClass, Outcome, TrustTier,
+    Actor, ActorKind, AuthorshipClaim, Contribution, Delegation, Evidence, EvidenceClass, Outcome,
+    TrustTier,
 };
 use std::path::PathBuf;
 
@@ -48,10 +49,12 @@ fn sample_contribution() -> Contribution {
             id: "claude-opus-5".into(),
             kind: ActorKind::Pair {
                 implementation: "claude-code".into(),
+                model: Some("claude-opus-5".into()),
                 operator: "josh".into(),
             },
             tier: TrustTier::Contributor,
             key_binding: Some("https://token.actions.githubusercontent.com".into()),
+            delegation: Vec::new(),
         },
         changed_paths: vec!["crates/gitlocus-core/src/policy.rs".into()],
         forge_ref: Some("https://github.com/hey-vera/gitlocus/pull/1".into()),
@@ -384,3 +387,86 @@ rules:
       signed_by:
         tests: "https://github.com/hey-vera/gitlocus/.github/workflows/*@*"
 "#;
+
+#[test]
+fn clause_11_a_delegated_actor_never_exceeds_its_delegator() {
+    // A maintainer hands an agent a grant capped at contributor. The policy's
+    // ci-and-policy rule demands maintainer standing on workflow paths, which
+    // the root holds and the delegated actor therefore does not.
+    let mut c = sample_contribution();
+    c.changed_paths = vec![".github/workflows/ci.yml".into()];
+    c.actor.tier = TrustTier::Maintainer;
+    c.actor.delegation = vec![Delegation {
+        delegator: "josh".into(),
+        ceiling: TrustTier::Contributor,
+        grant: Some("grant-1".into()),
+    }];
+    let policy = Policy::from_yaml(
+        &std::fs::read_to_string(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../.gitlocus/policy.yml"),
+        )
+        .unwrap(),
+    )
+    .unwrap()
+    .compile()
+    .unwrap();
+
+    let delegated = policy.evaluate(&c, &[]);
+    assert_eq!(delegated.tier_required, TrustTier::Maintainer);
+    assert!(
+        !delegated.tier_satisfied,
+        "a ceiling of contributor must not clear a maintainer requirement"
+    );
+
+    // The same document with the chain removed clears it: the ceiling, and
+    // nothing else, is what lowered the standing.
+    c.actor.delegation.clear();
+    assert!(policy.evaluate(&c, &[]).tier_satisfied);
+
+    // The serialised shape with a chain is what the published schema describes.
+    c.actor.delegation = vec![Delegation {
+        delegator: "josh".into(),
+        ceiling: TrustTier::Contributor,
+        grant: None,
+    }];
+    assert_valid(
+        "contribution.schema.json",
+        &serde_json::to_value(&c).unwrap(),
+    );
+}
+
+#[test]
+fn clause_11_a_chain_with_no_answerable_root_is_unknown() {
+    let mut c = sample_contribution();
+    c.actor.kind = ActorKind::Agent {
+        implementation: "claude-code".into(),
+        model: Some("claude-opus-5".into()),
+    };
+    // The document asserts maintainer and a maintainer ceiling. Nobody is
+    // answerable, so none of it counts.
+    c.actor.tier = TrustTier::Maintainer;
+    c.actor.delegation = vec![Delegation {
+        delegator: "another-agent".into(),
+        ceiling: TrustTier::Maintainer,
+        grant: None,
+    }];
+    let policy = Policy::from_yaml(
+        &std::fs::read_to_string(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../.gitlocus/policy.yml"),
+        )
+        .unwrap(),
+    )
+    .unwrap()
+    .compile()
+    .unwrap();
+    // The spec rule requires only `unknown` standing for src paths, so the
+    // actor clears the baseline; make the requirement bite instead.
+    c.changed_paths = vec!["spec/README.md".into()];
+    let v = policy.evaluate(&c, &[]);
+    assert_eq!(v.tier_required, TrustTier::Contributor);
+    assert!(!v.tier_satisfied, "an unaccountable root holds no standing");
+    assert_valid(
+        "contribution.schema.json",
+        &serde_json::to_value(&c).unwrap(),
+    );
+}

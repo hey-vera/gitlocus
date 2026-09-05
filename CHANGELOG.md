@@ -10,6 +10,22 @@ release until v1. That is stated in the spec itself and it is not a formality.
 
 ## [Unreleased]
 
+### Added
+
+- **Actor identity is a delegation chain.** `Actor` gains a `delegation` chain
+  (root first, each hop with a `ceiling`) and agents and pairs gain a `model`, so
+  standing attaches to ADR 0007's durable triple. The evaluator holds a delegated
+  actor to the lowest ceiling in its chain and an actor with no answerable party
+  at its root to `unknown`; `min_tier` is evaluated against that effective tier.
+  Specification §3.1, conformance clause 11, a property over generated chains.
+  Existing documents parse and evaluate unchanged. `locus contribution` takes
+  `--model`. (#11)
+
+### Changed
+
+- Specification §3.1: holding an `agent` with no operator to the lowest tier was
+  a SHOULD and is now a MUST.
+
 ### Fixed
 
 - **The action waited for itself in every repository but this one.** Its default

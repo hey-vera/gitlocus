@@ -467,7 +467,11 @@ impl CompiledPolicy {
             .into_iter()
             .collect();
 
-        let tier_satisfied = contribution.actor.tier.satisfies(tier_required);
+        // The effective tier, not the asserted one: a delegated actor is held
+        // to the lowest ceiling in its chain, and an agent nobody answers for
+        // is held to unknown. Read from the document alone, so a service that
+        // constructs the chain cannot argue the evaluator into a higher tier.
+        let tier_satisfied = contribution.actor.effective_tier().satisfies(tier_required);
 
         let decision = if !tier_satisfied || !unmet.is_empty() {
             Decision::Blocked
@@ -640,6 +644,7 @@ rules:
                 kind: ActorKind::Human,
                 tier,
                 key_binding: None,
+                delegation: Vec::new(),
             },
             changed_paths: paths.iter().map(|s| (*s).to_string()).collect(),
             forge_ref: None,

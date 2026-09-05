@@ -54,6 +54,7 @@ mod tests {
                 kind: ActorKind::Human,
                 tier: TrustTier::Unknown,
                 key_binding: None,
+                delegation: Vec::new(),
             },
             changed_paths: Vec::new(),
             forge_ref: None,
