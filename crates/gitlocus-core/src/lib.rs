@@ -36,7 +36,7 @@ pub mod policy;
 pub mod verdict;
 pub mod vouch;
 
-pub use actor::{Actor, ActorKind, TrustTier};
+pub use actor::{Actor, ActorKind, Delegation, TrustTier};
 pub use authorship::{AuthorshipClaim, AuthorshipKind};
 pub use contribution::Contribution;
 pub use evidence::{Evidence, EvidenceClass, Outcome};

@@ -72,6 +72,43 @@
           "type": "string",
           "description": "Human answerable for the agent's work. Required when kind is pair."
         },
+        "model": {
+          "type": "string",
+          "description": "The model that produced the work, when known. Part of the durable triple standing attaches to; a harness that swaps models does not inherit standing."
+        },
+        "delegation": {
+          "type": "array",
+          "default": [],
+          "description": "The delegation chain that led to this actor, root first. A verifier MUST compute the effective tier as the minimum of `tier` and every ceiling, and MUST hold a chain with no answerable party at its root to unknown.",
+          "items": {
+            "type": "object",
+            "required": [
+              "delegator",
+              "ceiling"
+            ],
+            "properties": {
+              "delegator": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Who granted this hop."
+              },
+              "ceiling": {
+                "enum": [
+                  "unknown",
+                  "vouched",
+                  "contributor",
+                  "maintainer"
+                ],
+                "description": "The most standing this hop may hold. A cap, never a promotion."
+              },
+              "grant": {
+                "type": "string",
+                "description": "Identifier of the grant that created this hop. Informational only; verifiers must not decide from it."
+              }
+            },
+            "additionalProperties": false
+          }
+        },
         "tier": {
           "enum": [
             "unknown",
