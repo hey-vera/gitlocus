@@ -247,6 +247,24 @@ argument with a misleading fallback.
 
 **Guard:** https://github.com/hey-vera/gitlocus/issues/81
 
+### The workflow audit can go red with nothing changed in the tree
+
+`workflow-audit` runs `zizmor-action`, which pulls the `latest` zizmor image. On
+2026-09-03 zizmor 1.29.0 began enforcing `ref-version-mismatch`, and three
+`github/codeql-action` pins whose comment said `# v4` — while the SHA resolved to
+`v4.37.7` — failed every pull request and the scheduled run on `main` for two
+days. Nothing in the repository had moved. A pull request that touched only
+documents was the one that noticed.
+
+The comments were corrected rather than the rule ignored: the rule is right, a
+version comment that names a floating major is a weaker claim than the SHA beside
+it. Dependabot's own bumps keep `# v4`, so the next bump reintroduces it unless
+the comment is fixed by hand in the same pull request.
+
+**Guard:** none — the audit floats on `latest` by design, so a new rule failing a
+clean tree is the intended behaviour, and the cost is a pull request like this one.
+Pinning the image would trade that for silently missing new rules.
+
 ### A path-filtered workflow produces no check run, not a skipped one
 
 Found while trying to *make* a skipped check to test the handling for it. A
