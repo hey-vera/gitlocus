@@ -35,6 +35,7 @@ allow = [
 # crate that is meant to carry it keeps the map enforced rather than declared.
 exceptions = [
     { name = "locusd", allow = ["AGPL-3.0-only"] },
+    { name = "locus-ledger", allow = ["AGPL-3.0-only"] },
 ]
 
 [bans]

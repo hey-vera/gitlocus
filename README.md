@@ -348,6 +348,7 @@ ordering costs: [ADR 0011](docs/adr/0011-the-kernel-of-a-git-platform.md).
 |---|---|---|
 | `spec/`, `crates/gitlocus-core`, `crates/gitlocus-cli` | Apache-2.0 | the format should be implementable by anyone, with no contact with copyleft code |
 | [`crates/locusd`](crates/locusd) | AGPL-3.0-only | the server is the part a hosted competitor could take closed |
+| [`crates/locus-ledger`](crates/locus-ledger) | AGPL-3.0-only | the stateful half — principals, grants, the record — kept beside the evaluator ([ADR 0021](docs/adr/0021-state-lives-beside-the-evaluator-never-in-it.md)) |
 
 Apache-2.0 is one-way compatible with the GPLv3 family, so the AGPL server may
 depend on the Apache kernel and not the reverse — which is the direction this
