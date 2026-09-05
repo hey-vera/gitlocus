@@ -19,7 +19,7 @@
 #      This matches how /var/www/claw-net is already owned, and it means later
 #      deploys are a plain copy.
 #
-# Then, without root:
+# Then, without root (the console copy is what `just deploy` does each release):
 #
 #   install -m 0644 ~/gitlocus/web/index.html /var/www/locus/index.html
 #   cat /etc/caddy/Caddyfile deploy/locus.heyvera.org.caddy > ~/Caddyfile

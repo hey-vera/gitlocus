@@ -7,6 +7,10 @@
 #   install -Dm0644 deploy/locusd.service ~/.config/systemd/user/locusd.service
 #   systemctl --user daemon-reload && systemctl --user enable --now locusd
 #
+# That is the one-time install of the unit. Moving a release onto the box is
+# `just deploy` (defaults to the latest release), and `just brief` says when the
+# live service and the latest release differ.
+#
 [Unit]
 Description=GitLocus evaluation service
 Documentation=https://github.com/hey-vera/gitlocus
