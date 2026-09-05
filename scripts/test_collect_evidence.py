@@ -23,7 +23,7 @@ from pathlib import Path
 COLLECT = Path(__file__).resolve().parent / "collect_evidence.py"
 
 
-def run(checks, *args, exclude=None, self_id=None):
+def run(checks, *args, exclude=None, self_id=None, run_id=None, job=None):
     """Run the collector over `checks` and return (exit code, stdout, evidence)."""
     with tempfile.TemporaryDirectory() as work:
         Path(work, "checks.json").write_text(json.dumps(checks), encoding="utf-8")
@@ -36,6 +36,11 @@ def run(checks, *args, exclude=None, self_id=None):
             env["GITLOCUS_SELF_CHECK_RUN"] = str(self_id)
         else:
             env.pop("GITLOCUS_SELF_CHECK_RUN", None)
+        for key, value in (("GITHUB_RUN_ID", run_id), ("GITHUB_JOB", job)):
+            if value is not None:
+                env[key] = str(value)
+            else:
+                env.pop(key, None)
         proc = subprocess.run(
             [sys.executable, str(COLLECT), *args],
             cwd=work,
@@ -49,8 +54,8 @@ def run(checks, *args, exclude=None, self_id=None):
         return proc.returncode, proc.stdout, evidence
 
 
-def check(name, status, conclusion, id=None):
-    return {"id": id, "name": name, "status": status, "conclusion": conclusion, "url": None}
+def check(name, status, conclusion, id=None, url=None):
+    return {"id": id, "name": name, "status": status, "conclusion": conclusion, "url": url}
 
 
 def outcome_for(evidence, kind):
@@ -135,6 +140,33 @@ def the_collectors_own_check_run_is_excluded_by_identity_not_by_name():
     assert outcome_for(evidence, "notes-gate") == "pass", evidence
 
 
+def without_the_id_the_job_is_found_by_its_run_and_its_job_key():
+    # The jobs endpoint needs `actions: read`, which GITHUB_TOKEN does not have
+    # by default and this repository's own gate did not have on the first run:
+    # the log said `this job is check run <unresolved>`. The fallback needs no
+    # permission: a check run from this workflow run whose name is GITHUB_JOB.
+    ours = "https://github.com/acme/repo/actions/runs/777/job/101"
+    theirs = "https://github.com/acme/repo/actions/runs/777/job/102"
+    elsewhere = "https://github.com/acme/repo/actions/runs/555/job/103"
+    checks = [
+        check("notes-gate", "in_progress", None, id=101, url=ours),
+        check("tests", "completed", "success", id=102, url=theirs),
+        # An earlier run's gate, already finished: same name, different run.
+        # It is evidence about this revision, not us.
+        check("notes-gate", "completed", "success", id=103, url=elsewhere),
+    ]
+    code, out, _ = run(checks, "--pending-only", run_id=777, job="notes-gate")
+    assert code == 0, f"this run's notes-gate is us and must not be waited on: {out}"
+    _, _, evidence = run(checks, run_id=777, job="notes-gate")
+    assert outcome_for(evidence, "notes-gate") == "pass", evidence
+    assert outcome_for(evidence, "tests") == "pass", evidence
+
+    # A job whose `name:` differs from its key is not found this way, and the
+    # collector says nothing false: it simply waits, as before.
+    code, _, _ = run(checks, "--pending-only", run_id=777, job="gate")
+    assert code == 1
+
+
 def every_record_is_deterministic_and_bound_to_the_revision():
     # Nothing in this collector may emit assessed evidence, and evidence for
     # another revision must never be produced in the first place.
@@ -157,6 +189,7 @@ def main():
         real_outcomes_map_to_pass_and_fail,
         the_exclusion_pattern_comes_from_the_environment,
         the_collectors_own_check_run_is_excluded_by_identity_not_by_name,
+        without_the_id_the_job_is_found_by_its_run_and_its_job_key,
         every_record_is_deterministic_and_bound_to_the_revision,
         duplicate_check_names_collapse_to_one_record,
     ]
