@@ -30,6 +30,14 @@ import sys
 # running this collector — is a name only the caller knows.
 EXCLUDED = re.compile(os.environ.get("GITLOCUS_EXCLUDE") or r"^(gate|arm|Scorecard|analyze)")
 
+# The check run of the job running this collector, by id. A name pattern that
+# must match the caller's job cannot be a correct default — the first adopter
+# named their job `notes-gate`, matched nothing, and waited five minutes for
+# themselves (#81). An id needs no guessing: the Actions job id is the check-run
+# id, and the action resolves its own before collecting. Empty means unknown,
+# and the name pattern is the only exclusion.
+SELF_CHECK_RUN = os.environ.get("GITLOCUS_SELF_CHECK_RUN", "").strip()
+
 # Only two conclusions mean the check actually ran and was satisfied.
 PASSING = {"success", "neutral"}
 
@@ -59,6 +67,8 @@ def relevant(runs):
     seen = set()
     for run in runs:
         name = run["name"]
+        if SELF_CHECK_RUN and str(run.get("id", "")) == SELF_CHECK_RUN:
+            continue
         if EXCLUDED.match(name) or name in seen:
             continue
         seen.add(name)

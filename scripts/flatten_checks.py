@@ -36,6 +36,10 @@ def main():
 
     flattened = [
         {
+            # The check-run id is the same number as the Actions job id, which
+            # is what lets the collector exclude the job it is running in by
+            # identity rather than by guessing its name.
+            "id": run.get("id"),
             "name": run.get("name", ""),
             "status": run.get("status", ""),
             "conclusion": run.get("conclusion"),

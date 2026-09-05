@@ -23,7 +23,7 @@ from pathlib import Path
 COLLECT = Path(__file__).resolve().parent / "collect_evidence.py"
 
 
-def run(checks, *args, exclude=None):
+def run(checks, *args, exclude=None, self_id=None):
     """Run the collector over `checks` and return (exit code, stdout, evidence)."""
     with tempfile.TemporaryDirectory() as work:
         Path(work, "checks.json").write_text(json.dumps(checks), encoding="utf-8")
@@ -32,6 +32,10 @@ def run(checks, *args, exclude=None):
             env["GITLOCUS_EXCLUDE"] = exclude
         else:
             env.pop("GITLOCUS_EXCLUDE", None)
+        if self_id is not None:
+            env["GITLOCUS_SELF_CHECK_RUN"] = str(self_id)
+        else:
+            env.pop("GITLOCUS_SELF_CHECK_RUN", None)
         proc = subprocess.run(
             [sys.executable, str(COLLECT), *args],
             cwd=work,
@@ -45,8 +49,8 @@ def run(checks, *args, exclude=None):
         return proc.returncode, proc.stdout, evidence
 
 
-def check(name, status, conclusion):
-    return {"name": name, "status": status, "conclusion": conclusion, "url": None}
+def check(name, status, conclusion, id=None):
+    return {"id": id, "name": name, "status": status, "conclusion": conclusion, "url": None}
 
 
 def outcome_for(evidence, kind):
@@ -107,6 +111,30 @@ def the_exclusion_pattern_comes_from_the_environment():
     assert [e["kind"] for e in evidence] == ["tests"], evidence
 
 
+def the_collectors_own_check_run_is_excluded_by_identity_not_by_name():
+    # #81: the first adopter named their gate job `notes-gate`. No default name
+    # pattern can know that, so the job waited the whole retry budget for
+    # itself and then evaluated an evidence set containing its own unfinished
+    # check. The action now tells the collector its own check-run id.
+    checks = [
+        check("notes-gate", "in_progress", None, id=101),
+        check("tests", "completed", "success", id=102),
+    ]
+    code, out, _ = run(checks, "--pending-only")
+    assert code == 1 and "notes-gate" in out, f"by name alone the job waits on itself: {out}"
+
+    code, out, _ = run(checks, "--pending-only", self_id=101)
+    assert code == 0, f"known by id, the job is not evidence about itself: {out}"
+    _, _, evidence = run(checks, self_id=101)
+    assert [e["kind"] for e in evidence] == ["tests"], evidence
+
+    # The id excludes exactly one run. A different job with the same name is
+    # still evidence — the exclusion is the identity, not the name it wore.
+    twin = [check("notes-gate", "completed", "success", id=103), *checks]
+    _, _, evidence = run(twin, self_id=101)
+    assert outcome_for(evidence, "notes-gate") == "pass", evidence
+
+
 def every_record_is_deterministic_and_bound_to_the_revision():
     # Nothing in this collector may emit assessed evidence, and evidence for
     # another revision must never be produced in the first place.
@@ -128,6 +156,7 @@ def main():
         a_check_that_did_not_run_is_never_a_pass,
         real_outcomes_map_to_pass_and_fail,
         the_exclusion_pattern_comes_from_the_environment,
+        the_collectors_own_check_run_is_excluded_by_identity_not_by_name,
         every_record_is_deterministic_and_bound_to_the_revision,
         duplicate_check_names_collapse_to_one_record,
     ]
