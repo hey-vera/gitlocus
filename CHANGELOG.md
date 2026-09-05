@@ -12,6 +12,15 @@ release until v1. That is stated in the spec itself and it is not a formality.
 
 ### Added
 
+- **Grants, store-side.** A principal issues a grant to an agent
+  `(implementation, model)`: repositories, a tier ceiling, a set of acts, an
+  expiry, and revocation that is immediate, permanent and once. The delegable set
+  is a type — `Act` has no variant for an approval attestation, a legal authorship
+  claim or a change to grants, so a grant cannot name what ADR 0020 §4 says it
+  may never confer. A grant reaches the evaluator only as a `Delegation` hop, and
+  a property shows it never widens what its issuer could do. Every time-dependent
+  method takes `now` from the caller. Schema 2; a schema-1 database migrates
+  forward with its rows intact. The credential that carries a grant follows. (#91)
 - **`crates/locus-ledger`, and the principal registry in it.** The stateful half
   of the platform, AGPL-3.0-only beside `locusd` and never inside it (ADR 0021).
   A principal is GitLocus's durable identity for an answerable party; it binds
