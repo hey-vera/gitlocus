@@ -344,7 +344,19 @@ brief:
 
     echo
     echo "== live service =="
-    curl -fsS https://locus.heyvera.org/healthz || echo "unreachable"
+    # The evaluator is meant to serve the latest release: it is pure and cheap to
+    # swap, so lagging is a default nobody chose rather than a decision (#80).
+    # Compared rather than merely printed beside each other, which is how a
+    # release-old service went unnoticed for two weeks.
+    live=$(curl -fsS https://locus.heyvera.org/healthz || echo unreachable)
+    echo "$live"
+    release=$(gh release view --repo "$repo" --json tagName --jq .tagName)
+    live_version=$(printf '%s' "$live" | sed -E 's/.*"version":"([^"]+)".*/\1/')
+    if [ "v$live_version" = "$release" ]; then
+      echo "  serving the latest release"
+    else
+      echo "::warning::the evaluator serves ${live_version} and the latest release is ${release}; \`just deploy\` moves it"
+    fi
     echo
 
     echo
@@ -424,3 +436,37 @@ brief:
       settings_fail=1
     fi
     exit "$settings_fail"
+
+# Put a release on the box: build locusd from its tag there, install it, restart it, and check /healthz reports it.
+#
+# The release ships no locusd binary (it is not on crates.io and not in the
+# release matrix), so the box builds it from the tag in its own checkout, which
+# is how every deploy so far was done by hand from a comment header. The
+# evaluator holds no state, so a restart loses nothing; the console is one file.
+# Needs `ssh guardian-vps-tail` to work and nothing else; no sudo anywhere.
+
+# Deploy a release to locus.heyvera.org (defaults to the latest); fails unless /healthz then reports it.
+deploy tag=`gh release view --repo hey-vera/gitlocus --json tagName --jq .tagName`:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    tag="{{tag}}"
+    host=guardian-vps-tail
+    echo "deploying $tag to $host"
+    ssh "$host" "set -euo pipefail
+      export PATH=\$HOME/.cargo/bin:\$PATH
+      cd ~/gitlocus
+      git fetch -q --tags origin
+      git checkout -q \"$tag\"
+      cargo build --release --locked -p locusd
+      install -m 0755 target/release/locusd ~/bin/locusd
+      install -m 0644 web/index.html /var/www/locus/index.html
+      systemctl --user restart locusd
+      sleep 1
+      systemctl --user is-active locusd"
+    live=$(curl -fsS https://locus.heyvera.org/healthz | sed -E 's/.*"version":"([^"]+)".*/\1/')
+    if [ "v$live" = "$tag" ]; then
+      echo "live: $live"
+    else
+      echo "::error::the live service reports $live after deploying $tag"
+      exit 1
+    fi
