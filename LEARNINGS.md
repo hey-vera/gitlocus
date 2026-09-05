@@ -48,6 +48,7 @@ direction:
 | clause 5, "byte-identical verdicts for identical inputs", held | the `advisory` list was emitted in the order the evidence arrived, so two assessed records in a different order produced different verdict bytes for the same inputs — and the test covering the clause used one assessed record, where the order cannot vary | `no_permutation_of_the_evidence_changes_the_verdict` |
 | "Dependabot security updates: enabled" | reported by the repository API while the dependency graph was **not** enabled, so `dependency-graph/compare` returned 403 and dependency review could not run at all. Fixed 2026-08-20 by attaching an org security configuration; the repository API never mentioned the graph either way | `just brief` — fails if `dependency-graph/compare` stops answering 200 |
 | `cargo test --doc` kept "the model's documentation examples honest" | every fenced block in a doc comment is `yaml` or `text`, which rustdoc does not compile; the step reported `running 0 tests` | `every_yaml_example_in_the_documentation_is_a_valid_policy` |
+| the repository description said "Not a forge" | ADR 0011 superseded that framing on 2026-08-19 and the description kept saying it until 2026-09-05, because a setting is prose no test in the tree can read | `just brief` — fails if the description carries 0001's framing again |
 
 Run it, read the output, quote it. Under-claiming costs nothing; over-claiming
 costs the benefit of the doubt on everything else you say.
