@@ -20,7 +20,7 @@ which part of the context has changed.
 | [0008](0008-authorship-is-declared-not-detected.md) | Authorship is declared, not detected | accepted |
 | [0009](0009-trust-is-earned-from-merged-history.md) | Trust is earned from merged history, not asserted | accepted |
 | [0010](0010-an-attestation-needs-someone-to-attest.md) | An attestation needs someone to attest | accepted |
-| [0011](0011-the-kernel-of-a-git-platform.md) | The kernel of a git platform | accepted |
+| [0011](0011-the-kernel-of-a-git-platform.md) | The kernel of a git platform | amended by 0019 |
 | [0012](0012-the-harness-is-the-integration-surface.md) | The harness is the integration surface | accepted |
 | [0013](0013-a-contribution-is-governed-by-base-and-head.md) | A contribution is governed by base and head together | accepted |
 | [0014](0014-the-gate-is-built-from-the-base-revision.md) | The gate is built from the base revision | accepted |
@@ -28,12 +28,15 @@ which part of the context has changed.
 | [0016](0016-locusd-lives-here-under-agpl.md) | locusd lives in this repository, under AGPL-3.0 | accepted |
 | [0017](0017-the-foundation-layer-is-executable.md) | The foundation layer is executable | accepted |
 | [0018](0018-quantified-claims-are-tested-as-properties.md) | A claim about every input is tested over every input | accepted |
+| [0019](0019-the-locus-is-identity-standing-and-the-decision.md) | The locus is identity, standing and the decision; storage is a backend | accepted |
 
 ## Reading order
 
 New here? [0011](0011-the-kernel-of-a-git-platform.md) says what this project is
-building and why the order is what it is, [0003](0003-evidence-classes.md) says
-what makes it work, and
+building and why the order is what it is,
+[0019](0019-the-locus-is-identity-standing-and-the-decision.md) says what the
+platform above the kernel is and what stays a backend,
+[0003](0003-evidence-classes.md) says what makes it work, and
 [0005](0005-evidence-classes-survive-better-models.md) says why that will still
 be true in five years.
 
@@ -59,7 +62,9 @@ is:
 - **[0011](0011-the-kernel-of-a-git-platform.md) + [0012](0012-the-harness-is-the-integration-surface.md)** —
   what is being built and where it plugs in. 0011 supersedes 0001 by keeping its
   finding and replacing its framing; read 0001 only for the reasoning it
-  preserves.
+  preserves. [0019](0019-the-locus-is-identity-standing-and-the-decision.md)
+  amends 0011 by naming what the platform above the kernel is — identity,
+  standing, delegation, the decision and the queue — and what stays a backend.
 
 ## Writing a new one
 

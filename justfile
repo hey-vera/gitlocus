@@ -390,6 +390,19 @@ brief:
       settings_fail=1
     fi
 
+    # The description is prose about the project that lives in a setting rather
+    # than in the tree, so no test can reach it. It said "Not a forge" for the
+    # seventeen days between ADR 0011 superseding that framing and anyone
+    # noticing, which is exactly the kind of drift a record cannot guard alone.
+    description=$(gh api "repos/$repo" --jq '.description // ""')
+    case "$description" in
+      *"Not a forge"*)
+        echo '::error::the repository description still carries ADR 0001 framing ("Not a forge"); ADR 0019 says what the project is'
+        settings_fail=1 ;;
+      *)
+        echo "  repository description: not 0001's framing" ;;
+    esac
+
     echo
     echo "== required checks: ruleset vs .github/required-checks.txt =="
     # The conformance suite reads the checked-in file so it can run offline. This

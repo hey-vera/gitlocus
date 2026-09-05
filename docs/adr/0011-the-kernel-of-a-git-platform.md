@@ -4,6 +4,7 @@
 - **Status:** accepted
 - **Date:** 2026-08-19
 - **Supersedes:** [0001](0001-evidence-not-a-forge.md)
+- **Amended by:** [0019](0019-the-locus-is-identity-standing-and-the-decision.md) — the platform above the kernel is identity, standing, delegation, the decision and the queue; storage is a backend
 
 ## Context
 
