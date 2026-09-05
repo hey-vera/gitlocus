@@ -1,0 +1,32 @@
+[package]
+name = "locus-ledger"
+description = "GitLocus ledger: principals, grants, and the record of what was decided. The stateful half, kept beside the evaluator and never in it."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+# AGPL-3.0, like locusd and for the same reason: this is the part a hosted
+# competitor could take closed. ADR 0016 chose the licence conservatively and
+# ADR 0021 put this crate beside the evaluator rather than inside it.
+license = "AGPL-3.0-only"
+
+# Not intended for crates.io. It is a service, and it holds the one asset that
+# cannot be reconstructed; publishing it would imply a stability promise it does
+# not make yet.
+publish = false
+
+[lib]
+name = "locus_ledger"
+path = "src/lib.rs"
+
+[dependencies]
+gitlocus-core.workspace = true
+# Bundled, so the box needs no system SQLite and every build links the same
+# version. ADR 0021: SQLite on the single node, chosen for having nothing to
+# operate; a hosted database is revisited when there is a second node.
+rusqlite = { version = "0.40", features = ["bundled"] }
+
+[lints]
+workspace = true

@@ -142,6 +142,8 @@ Open questions that are not yet decisions live in the
 | `spec/` | Normative model and JSON Schemas |
 | `crates/gitlocus-core/` | Reference implementation of the model |
 | `crates/gitlocus-cli/` | The `locus` binary |
+| `crates/locusd/` | The pure evaluator over HTTP (AGPL-3.0-only) |
+| `crates/locus-ledger/` | The stateful half: principals, then grants and the record (AGPL-3.0-only, ADR 0021) |
 | `.gitlocus/policy.yml` | The policy this repository runs on itself |
 | `docs/adr/` | Why decisions were made |
 | `justfile` | Every check, defined once; CI invokes these recipes |

@@ -12,6 +12,13 @@ release until v1. That is stated in the spec itself and it is not a formality.
 
 ### Added
 
+- **`crates/locus-ledger`, and the principal registry in it.** The stateful half
+  of the platform, AGPL-3.0-only beside `locusd` and never inside it (ADR 0021).
+  A principal is GitLocus's durable identity for an answerable party; it binds
+  one or more upstream identities and always keeps at least one. Two invariants,
+  both tested: an upstream identity belongs to at most one principal, and the
+  last binding cannot be removed. SQLite with forward-only migrations; a database
+  from a newer schema is refused rather than read. Login itself follows. (#90)
 - **Actor identity is a delegation chain.** `Actor` gains a `delegation` chain
   (root first, each hop with a `ceiling`) and agents and pairs gain a `model`, so
   standing attaches to ADR 0007's durable triple. The evaluator holds a delegated

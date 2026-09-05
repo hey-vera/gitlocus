@@ -258,7 +258,7 @@ licence-headers:
     fail=0
     while IFS= read -r f; do
       case "$f" in
-        crates/locusd/*) want="AGPL-3.0-only" ;;
+        crates/locusd/*|crates/locus-ledger/*) want="AGPL-3.0-only" ;;
         *)               want="Apache-2.0" ;;
       esac
       if ! head -5 "$f" | grep -q "SPDX-License-Identifier: $want"; then
