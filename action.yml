@@ -52,12 +52,12 @@ inputs:
   exclude:
     description: >-
       Regular expression matching check-run names that are not evidence about
-      this revision. It must match the job running this action: that job is a
-      check run too, it is still in progress while it collects, and waiting for
-      itself would stall until the retry budget ran out. Repository-posture
-      scans belong here as well.
+      this revision, such as repository-posture scans. The job running this
+      action is excluded by identity, not by name, so it does not need to appear
+      here; the default lists this repository's own posture jobs and is
+      harmless elsewhere.
     required: false
-    default: ^(gitlocus|gate|arm|Scorecard|analyze)
+    default: ^(arm|Scorecard|analyze)
 
 outputs:
   decision:
@@ -215,14 +215,38 @@ runs:
         # still seen. A gate that could only observe its own workflow would
         # report a verdict on part of the evidence and present it as the whole.
         cd "$WORK"
+
+        # This job is a check run too, still in progress while it collects. It
+        # is excluded by identity rather than by name: an adopter names the job
+        # whatever they like, and a name pattern that had to match it stalled
+        # the first adopter for the whole retry budget (#81). The Actions job id
+        # is the check-run id, and the job running on this runner right now is
+        # this one.
+        GITLOCUS_SELF_CHECK_RUN=$(gh api "repos/$REPO/actions/runs/$GITHUB_RUN_ID/jobs" --paginate \
+          --jq --arg runner "$RUNNER_NAME" \
+          '.jobs[] | select(.status == "in_progress" and .runner_name == env.RUNNER_NAME) | .id' \
+          2>/dev/null | head -n1 || true)
+        export GITLOCUS_SELF_CHECK_RUN
+        if [ -n "$GITLOCUS_SELF_CHECK_RUN" ]; then
+          echo "this job is check run $GITLOCUS_SELF_CHECK_RUN; excluding it by identity"
+        else
+          echo "::warning::could not resolve this job's check run id; only the exclude pattern applies"
+        fi
+
         for attempt in $(seq 1 20); do
           gh api "repos/$REPO/commits/$HEAD_SHA/check-runs" --paginate --jq '.check_runs' > raw.json
           python3 "$ACTION_PATH/scripts/flatten_checks.py"
           if python3 "$ACTION_PATH/scripts/collect_evidence.py" --pending-only; then
             break
           fi
-          echo "waiting for checks to finish (attempt $attempt)"
-          sleep 15
+          if [ "$attempt" -eq 20 ]; then
+            # Say what is still outstanding rather than proceeding silently over
+            # an evidence set that contains an unfinished check.
+            echo "::warning::retry budget spent with checks still pending (listed above); they will be recorded as inconclusive. If one of them is this job, set the exclude input to match it."
+          else
+            echo "waiting for checks to finish (attempt $attempt)"
+            sleep 15
+          fi
         done
         python3 "$ACTION_PATH/scripts/collect_evidence.py"
 

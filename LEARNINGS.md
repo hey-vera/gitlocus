@@ -246,7 +246,10 @@ The general shape is worth more than the instance: a default whose correctness
 depends on something only the caller knows is not a default, it is a required
 argument with a misleading fallback.
 
-**Guard:** https://github.com/hey-vera/gitlocus/issues/81
+**Guard:** `scripts/test_collect_evidence.py` —
+`the_collectors_own_check_run_is_excluded_by_identity_not_by_name`: the action
+resolves its own check-run id (the Actions job id) and the collector excludes
+that one run whatever it is called.
 
 ### The workflow audit can go red with nothing changed in the tree
 
