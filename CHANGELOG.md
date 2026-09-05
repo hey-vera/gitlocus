@@ -33,8 +33,9 @@ release until v1. That is stated in the spec itself and it is not a formality.
   one was `notes-gate` — matched nothing, waited the whole retry budget, and then
   evaluated an evidence set containing its own unfinished check run. The action
   now resolves its own check-run id and the collector excludes that run by
-  identity, whatever it is called; the retry budget expiring says what is still
-  pending instead of proceeding silently. (#81)
+  identity, whatever it is called — or, when the token lacks `actions: read`,
+  by this workflow run and the job's key; the retry budget expiring says what is
+  still pending instead of proceeding silently. (#81)
 
 ## [0.0.4] — 2026-08-20
 

@@ -22,7 +22,10 @@ inputs:
   token:
     description: >-
       Token used to read check runs and the contributor's repository permission.
-      Needs `checks: read` and `contents: read`; GITHUB_TOKEN is enough.
+      Needs `checks: read` and `contents: read`; GITHUB_TOKEN is enough. With
+      `actions: read` as well, the action identifies the job it runs in by id;
+      without it, it finds itself by this workflow run and the job's key, which
+      works unless the job has a `name:` different from its key.
     required: true
   policy:
     description: Path to the policy document, relative to the repository root.
@@ -223,14 +226,14 @@ runs:
         # is the check-run id, and the job running on this runner right now is
         # this one.
         GITLOCUS_SELF_CHECK_RUN=$(gh api "repos/$REPO/actions/runs/$GITHUB_RUN_ID/jobs" --paginate \
-          --jq --arg runner "$RUNNER_NAME" \
-          '.jobs[] | select(.status == "in_progress" and .runner_name == env.RUNNER_NAME) | .id' \
-          2>/dev/null | head -n1 || true)
+          --jq '.jobs[] | "\(.id)\t\(.status)\t\(.runner_name)"' 2>/dev/null \
+          | awk -F'\t' -v runner="$RUNNER_NAME" '$2 == "in_progress" && $3 == runner { print $1 }' \
+          | head -n1 || true)
         export GITLOCUS_SELF_CHECK_RUN
         if [ -n "$GITLOCUS_SELF_CHECK_RUN" ]; then
           echo "this job is check run $GITLOCUS_SELF_CHECK_RUN; excluding it by identity"
         else
-          echo "::warning::could not resolve this job's check run id; only the exclude pattern applies"
+          echo "this job's check run id is not readable (the jobs endpoint needs actions: read); matching this run's job named $GITHUB_JOB instead"
         fi
 
         for attempt in $(seq 1 20); do

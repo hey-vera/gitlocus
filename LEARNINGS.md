@@ -296,7 +296,10 @@ the reason this document says it twice.
 
 One merges the moment its checks go green. Push every commit you intend to
 include *before* that happens; a follow-up pushed to a branch that has already
-merged is stranded and needs its own pull request. This has happened twice.
+merged is stranded and needs its own pull request. This has happened three
+times; the third was #102, where the fix for a failed live run landed on a
+branch that had merged ninety seconds earlier, and this pull request is the
+result.
 
 **Guard:** `.github/workflows/automerge.yml` — the behaviour is deliberate
 and checked in, so at least it is discoverable rather than surprising.
